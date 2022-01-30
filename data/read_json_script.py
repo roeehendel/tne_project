@@ -7,9 +7,6 @@ preposition_list = ['no-relation', 'of', 'against', 'in', 'by', 'on', 'about', '
 
 # Opening JSON file
 input_file = 'train.jsonl'
-
-# returns JSON object as
-# a dictionary
 with open(input_file, 'r', encoding='latin-1') as f:
     lines = f.readlines()
 
