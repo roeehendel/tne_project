@@ -14,7 +14,7 @@ class TNEDataset(Dataset):
         self.data = [json.loads(line) for line in lines]
 
         # TODO: remove this to use all data!!!
-        self.data = self.data[:8]
+        self.data = self.data[:256]
 
         self.tokenizer = tokenizer
         self.max_len = max_len
@@ -30,8 +30,9 @@ class TNEDataset(Dataset):
             None,
             add_special_tokens=True,
             max_length=self.max_len,
-            pad_to_max_length=True,
-            return_token_type_ids=True
+            padding='max_length',
+            return_token_type_ids=True,
+            truncation=True
         )
         ids = inputs['input_ids']
         mask = inputs['attention_mask']
