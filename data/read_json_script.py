@@ -1,9 +1,8 @@
 import json
 
-
 preposition_list = ['no-relation', 'of', 'against', 'in', 'by', 'on', 'about', 'with', 'after', 'member(s) of',
-                          'to', 'from', 'for', 'among', 'under', 'at', 'between', 'during', 'near', 'over', 'before',
-                          'inside', 'outside', 'into', 'around']
+                    'to', 'from', 'for', 'among', 'under', 'at', 'between', 'during', 'near', 'over', 'before',
+                    'inside', 'outside', 'into', 'around']
 
 # Opening JSON file
 input_file = 'train.jsonl'
