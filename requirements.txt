@@ -1,3 +1,4 @@
 torch
 transformers
 pytorch_lightning
+numpy~=1.20.2
