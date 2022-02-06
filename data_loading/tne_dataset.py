@@ -3,22 +3,19 @@ import json
 
 import numpy as np
 import torch
+from tokenizers import Encoding
 from torch.utils.data import Dataset
-from transformers import PreTrainedTokenizer
+from transformers import PreTrainedTokenizerFast
 
 preposition_list = ['no-relation', 'of', 'against', 'in', 'by', 'on', 'about', 'with', 'after', 'member(s) of',
                     'to', 'from', 'for', 'among', 'under', 'at', 'between', 'during', 'near', 'over', 'before',
                     'inside', 'outside', 'into', 'around']
 
-"""
-:param
-len_nps - amount of nps in the example
-len_nps - list of dicts. relevant keys in each dict contains: 'anchor', 'complement', 'preposition' 
-          (there is 'complement_coref_cluster_id')
-"""
 
+def create_target(item: dict, ignore_index: int = -100):
+    len_nps = len(item['nps'])
+    np_relations = item['np_relations']
 
-def create_target(len_nps, np_relations, ignore_index=-100):
     # creating target vec of k^2
     target = np.zeros(len_nps ** 2)
     # go over all the np relations and update target
@@ -33,8 +30,16 @@ def create_target(len_nps, np_relations, ignore_index=-100):
     return target
 
 
+def create_nps(item: dict, encoding: Encoding):
+    raw_nps = [item['nps'][f'np{i}'] for i in range(len(item['nps']))]
+    nps_characters = [(np['first_char'], np['last_char'] - 1) for np in raw_nps]
+    tokens_idx = [tuple(map(encoding.char_to_token, characters)) for characters in nps_characters]
+    tokens_idx = [(idx_start - 1, idx_end - 1) for idx_start, idx_end in tokens_idx]
+    return tokens_idx
+
+
 class TNEDataset(Dataset):
-    def __init__(self, file_path: str, tokenizer: PreTrainedTokenizer, max_length: int):
+    def __init__(self, file_path: str, tokenizer: PreTrainedTokenizerFast, max_length: int):
         self.tokenizer = tokenizer
         self.max_len = max_length
 
@@ -47,8 +52,10 @@ class TNEDataset(Dataset):
         self.data = self.data[:16]
 
         texts = [item['text'] for item in self.data]
-        self.encoded_inputs = self.tokenizer(texts, max_length=max_length, padding='max_length')
-        # TODO: use the char_to_token method of the tokenizer to get the token ids of the nps start and end
+        self.encodings = self.tokenizer(texts, max_length=max_length, padding='max_length')
+
+        self.targets = [create_target(item) for item in self.data]
+        self.nps = [create_nps(item, self.encodings[i]) for i, item in enumerate(self.data)]
 
     def __len__(self):
         return len(self.data)
@@ -56,15 +63,16 @@ class TNEDataset(Dataset):
     def __getitem__(self, idx):
         item: dict = self.data[idx]
 
-        ids = self.encoded_inputs['input_ids'][idx]
-        mask = self.encoded_inputs['attention_mask'][idx]
-        token_type_ids = self.encoded_inputs["token_type_ids"][idx]
-
-        target = create_target(len(item['nps']), item['np_relations'])
+        ids = self.encodings['input_ids'][idx]
+        mask = self.encodings['attention_mask'][idx]
+        token_type_ids = self.encodings["token_type_ids"][idx]
+        nps = self.nps[idx]
+        target = self.targets[idx]
 
         return {
             'ids': torch.tensor(ids, dtype=torch.long),
             'mask': torch.tensor(mask, dtype=torch.long),
             'token_type_ids': torch.tensor(token_type_ids, dtype=torch.long),
+            'nps': nps,
             'targets': torch.tensor(target, dtype=torch.long)
         }

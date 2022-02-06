@@ -2,7 +2,7 @@ from typing import Optional
 
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
-from transformers import PreTrainedTokenizer
+from transformers import PreTrainedTokenizerFast
 
 from data_loading.tne_dataset import TNEDataset
 
@@ -12,7 +12,7 @@ TEST_DATASET = 'data/test_unlabeled.jsonl.gz'
 
 
 class TNEDataModule(LightningDataModule):
-    def __init__(self, tokenizer: PreTrainedTokenizer, max_len: int = 512):
+    def __init__(self, tokenizer: PreTrainedTokenizerFast, max_len: int = 512):
         super().__init__()
         self.tokenizer = tokenizer
         self.max_len = max_len
