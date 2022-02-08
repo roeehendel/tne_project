@@ -10,18 +10,24 @@ with open(input_file, 'r', encoding='latin-1') as f:
     lines = f.readlines()
 
 f.close()
-
-relations_amount_per_tuple = []
+total_nps = 0
+greater_than_one_nps = 0
 
 for i in range(len(lines)):  # go over all the examples
     json_object = json.loads(lines[i])
+    anchoer_complement_tuples_dict = dict()
     np_relations = json_object['np_relations']  # go over all the np relations
     for np_relation in np_relations:
-        preposition = np_relation['preposition']
-        if preposition not in preposition_list:
-            relations_amount_per_tuple.append(len(preposition))
-        else:  # one word
-            relations_amount_per_tuple.append(1)
+        anchor = np_relation['anchor']
+        complement = np_relation['complement']
+        if (anchor, complement) not in anchoer_complement_tuples_dict:
+            anchoer_complement_tuples_dict[(anchor, complement)] = 1
+        else:
+            anchoer_complement_tuples_dict[(anchor, complement)] += 1
+    total_nps += len(anchoer_complement_tuples_dict)
+    values = anchoer_complement_tuples_dict.values()
+    greater_than_one_nps += len([val for val in values if val > 1])
 
-larger_elements = [element for element in relations_amount_per_tuple if element > 1]
-print(f'all tuples: {len(relations_amount_per_tuple)}, more that 1 relation: {len(larger_elements)}')
+
+print(greater_than_one_nps)
+print(total_nps)
