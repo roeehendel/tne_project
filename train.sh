@@ -1,0 +1,1 @@
+nohup python training.py </dev/null >output.txt 2>&1 &
