@@ -34,8 +34,12 @@ def predict(run_name: str, data_loaders_num_workers: int, model_checkpoint_to_us
 
     trainer = Trainer(gpus=1)
 
-    for data_split, dataloader in [('val', tne_data_module.val_dataloader()),
-                                   ('test', tne_data_module.test_dataloader())]:
+    dataloaders = [
+        ('val', tne_data_module.val_dataloader()),
+        # ('test', tne_data_module.test_dataloader())
+    ]
+
+    for data_split, dataloader in dataloaders:
         trainer.test(model, dataloaders=dataloader)
         test_results = model.test_results
 
@@ -46,7 +50,7 @@ def predict(run_name: str, data_loaders_num_workers: int, model_checkpoint_to_us
 
 
 if __name__ == '__main__':
-    RUN_NAME = 'tne_model_run_4'
+    RUN_NAME = 'skilled-surf-7'
     DATA_LOADERS_NUM_WORKERS = 0
 
     predict(RUN_NAME, DATA_LOADERS_NUM_WORKERS, model_checkpoint_to_use=0)

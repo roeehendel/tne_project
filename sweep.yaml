@@ -1,0 +1,19 @@
+program: train.py
+project: TNE
+method: random
+metric:
+  name: dev/links/f1
+  goal: maximize
+parameters:
+  "learning_rate":
+    "distribution": "log_uniform"
+    "min": -11
+    "max": -6
+  "dropout_p":
+    "distribution": "uniform"
+    "min": 0.0
+    "max": 0.5
+  "loss_weight_power":
+    "distribution": "uniform"
+    "min": 0.0
+    "max": 1.0

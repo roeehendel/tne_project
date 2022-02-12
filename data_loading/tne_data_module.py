@@ -4,11 +4,8 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 from transformers import PreTrainedTokenizerFast
 
+from data_loading.tne_data_paths import TRAIN_DATASET, DEV_DATASET, TEST_DATASET
 from data_loading.tne_dataset import TNEDataset
-
-TRAIN_DATASET = 'data/train.jsonl.gz'
-DEV_DATASET = 'data/dev.jsonl.gz'
-TEST_DATASET = 'data/test_unlabeled.jsonl.gz'
 
 
 class TNEDataModule(LightningDataModule):

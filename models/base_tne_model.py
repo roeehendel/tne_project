@@ -3,28 +3,31 @@ import math
 from typing import Callable, Dict
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torchmetrics
 import transformers
 from pytorch_lightning import LightningModule
+from torchmetrics import Metric
 from transformers import BertTokenizerFast
 
+from data_loading.tne_class_weights import TNE_CLASS_WEIGHTS
 from data_loading.tne_dataset import PREPOSITION_LIST
+from metrics.custom_f1 import CustomF1
 
 
 @dataclasses.dataclass
 class MetricConfig:
-    metric_functions: Dict[str, torchmetrics.Metric]
-    averaging_method: str
+    metric_functions: Dict[str, Metric]
     preprocessor: Callable
-    num_classes: int = len(PREPOSITION_LIST)
-    multiclass: bool = True
+    metric_functions_kwargs: Dict = dataclasses.field(default_factory=dict)
 
 
 class BaseTNEModel(LightningModule):
     def __init__(self, ignore_index: int,
                  learning_rate: float = 1e-04,
-                 anchor_complement_embedding_size: int = 768, predictor_hidden: int = 512,
+                 anchor_complement_embedding_size: int = 512, predictor_hidden: int = 128,
+                 dropout_p: float = 0.1, loss_weight_power: float = 0.5,
                  num_prepositions: int = len(PREPOSITION_LIST), freeze_embedder: bool = False):
         super().__init__()
         # Hyper Parameters
@@ -34,7 +37,9 @@ class BaseTNEModel(LightningModule):
             "freeze_embedder",
             "anchor_complement_embedding_size",
             "predictor_hidden",
-            "num_prepositions"
+            "num_prepositions",
+            "dropout_p",
+            "loss_weight_power"
         )
 
         # Tokenizer
@@ -42,69 +47,42 @@ class BaseTNEModel(LightningModule):
 
         # Layers
         self.embedder = transformers.BertModel.from_pretrained('bert-base-uncased')
-        if freeze_embedder:
+        self.anchor_encoder = self._anchor_complement_encoder()
+        self.complement_encoder = self._anchor_complement_encoder()
+        self.predictor = self._predictor()
+
+        # Layer freezing
+        if self.hparams.freeze_embedder:
             for param in self.embedder.parameters():
                 param.requires_grad = False
 
-        embedder_hidden_size = self.embedder.config.hidden_size
-        self.anchor_encoder = torch.nn.Linear(2 * embedder_hidden_size, self.hparams.anchor_complement_embedding_size)
-        self.complement_encoder = torch.nn.Linear(2 * embedder_hidden_size,
-                                                  self.hparams.anchor_complement_embedding_size)
-
-        self.predictor_1 = torch.nn.Linear(2 * self.hparams.anchor_complement_embedding_size,
-                                           self.hparams.predictor_hidden)
-        self.predictor_2 = torch.nn.Linear(self.hparams.predictor_hidden, self.hparams.num_prepositions)
-
         # Loss
-        self.loss_weight = torch.tensor([1] + [10 for _ in range(self.hparams.num_prepositions - 1)],
-                                        device=self.device, dtype=torch.float)
+        self.loss_weight = self._loss_weight()
 
         # Metrics
         self.data_splits = ['train', 'dev']
 
-        metric_functions = {
-            'precision': torchmetrics.Precision,
-            'recall': torchmetrics.Recall,
-            'f1': torchmetrics.F1Score,
-        }
-
         self.metric_configs = {
-            'prepositions': MetricConfig(
-                metric_functions=metric_functions,
-                preprocessor=lambda predictions, targets: (predictions, targets),
-                averaging_method='micro'
-            ),
-            'prepositions_linked_targets': MetricConfig(
-                metric_functions=metric_functions,
-                preprocessor=lambda predictions, targets: (predictions[targets != 0], targets[targets != 0]),
-                averaging_method='micro'
-            ),
-            'prepositions_linked_predictions': MetricConfig(
-                metric_functions=metric_functions,
-                preprocessor=lambda predictions, targets: (predictions[predictions != 0], targets[predictions != 0]),
-                averaging_method='micro'
-            ),
-            'prepositions_linked_both': MetricConfig(
-                metric_functions=metric_functions,
-                preprocessor=lambda predictions, targets: (
-                    predictions[(predictions != 0) & (targets != 0)], targets[(predictions != 0) & (targets != 0)]),
-                averaging_method='micro'
-            ),
             'links': MetricConfig(
-                metric_functions=metric_functions,
+                metric_functions={'precision': torchmetrics.Precision, 'recall': torchmetrics.Recall,
+                                  'f1': torchmetrics.F1Score},
                 preprocessor=lambda predictions, targets: (predictions != 0, targets != 0),
-                averaging_method='none',
-                num_classes=1,
-                multiclass=False
-            )
+                metric_functions_kwargs={
+                    'average': 'none',
+                    'num_classes': 1,
+                    'multiclass': False
+                }
+            ),
+            'prepositions': MetricConfig(
+                metric_functions={'custom_f1': CustomF1},
+                preprocessor=lambda predictions, targets: (predictions, targets),
+            ),
         }
 
         self.metrics = {
             data_split: {
                 metric_name: {
-                    metric_function_name: metric_function(average=metric_config.averaging_method,
-                                                          num_classes=metric_config.num_classes,
-                                                          multiclass=metric_config.multiclass)
+                    metric_function_name: metric_function(**metric_config.metric_functions_kwargs)
                     for metric_function_name, metric_function in metric_config.metric_functions.items()
                 } for metric_name, metric_config in self.metric_configs.items()
             }
@@ -116,7 +94,7 @@ class BaseTNEModel(LightningModule):
             for metric_name in self.metrics[data_split]:
                 for metric_function_name in self.metrics[data_split][metric_name]:
                     metric = self.metrics[data_split][metric_name][metric_function_name]
-                    self.__setattr__(f'{data_split}/{metric_name}_{metric_function_name}', metric)
+                    self.__setattr__(self._metric_full_name(data_split, metric_name, metric_function_name), metric)
 
     def forward(self, ids, mask, token_type_ids, nps):
         encoder_results = self.embedder(ids, attention_mask=mask, token_type_ids=token_type_ids)
@@ -139,8 +117,7 @@ class BaseTNEModel(LightningModule):
             dim=-1
         ).reshape(batch_size, num_nps ** 2, -1)
 
-        predictor_hidden = torch.relu(self.predictor_1(anchor_complement_pair_embeddings))
-        prediction = self.predictor_2(predictor_hidden)
+        prediction = self.predictor(anchor_complement_pair_embeddings)
 
         return prediction
 
@@ -150,7 +127,7 @@ class BaseTNEModel(LightningModule):
     def training_step(self, batch, batch_idx):
         loss, target, predictions = self._train_val_step(batch)
 
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('train/loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self._calc_metrics(target, predictions, 'train')
 
         return loss
@@ -158,7 +135,7 @@ class BaseTNEModel(LightningModule):
     def validation_step(self, batch, batch_idx):
         loss, target, predictions = self._train_val_step(batch)
 
-        self.log('dev_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('dev/loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self._calc_metrics(target, predictions, 'dev')
 
         return loss
@@ -183,6 +160,31 @@ class BaseTNEModel(LightningModule):
                        for batch_predictions in all_predictions
                        for example_prediction in batch_predictions['predictions']]
         self.test_results = predictions
+
+    def _loss_weight(self):
+        class_weights = torch.tensor(TNE_CLASS_WEIGHTS, device=self.device, dtype=torch.float)
+        loss_weight = (1 / class_weights)
+        loss_weight = loss_weight ** self.hparams.loss_weight_power
+        loss_weight = loss_weight / loss_weight.sum()
+        return loss_weight
+
+    def _anchor_complement_encoder(self):
+        embedder_hidden_size = self.embedder.config.hidden_size
+        return nn.Sequential(
+            nn.Linear(2 * embedder_hidden_size, self.hparams.anchor_complement_embedding_size),
+            # nn.ReLU(),
+            # nn.Dropout(self.hparams.dropout_p),
+            # nn.Linear(self.hparams.anchor_complement_embedding_size, self.hparams.anchor_complement_embedding_size),
+        )
+
+    def _predictor(self):
+        return nn.Sequential(
+            torch.nn.Linear(2 * self.hparams.anchor_complement_embedding_size,
+                            self.hparams.predictor_hidden),
+            nn.ReLU(),
+            # nn.Dropout(self.hparams.dropout_p),
+            torch.nn.Linear(self.hparams.predictor_hidden, self.hparams.num_prepositions)
+        )
 
     def _train_val_step(self, batch):
         logits = self._predict_logits(batch)
@@ -232,8 +234,10 @@ class BaseTNEModel(LightningModule):
                 metric = self.metrics[data_split][metric_name][metric_function_name]
                 targets_preprocessed, predictions_preprocessed = metric_preprocessor(predictions_masked, targets_masked)
                 if len(targets_preprocessed) != 0:
-                    if metric_config.num_classes == 1:
-                        targets_preprocessed = targets_preprocessed.bool()
-                        predictions_preprocessed = predictions_preprocessed.bool()
                     metric(targets_preprocessed.to(self.device), predictions_preprocessed.to(self.device))
-                    self.log(f'{data_split}_{metric_name}_{metric_function_name}', metric, on_step=True, on_epoch=True)
+                    self.log(self._metric_full_name(data_split, metric_name, metric_function_name),
+                             metric, on_step=True, on_epoch=True)
+
+    @staticmethod
+    def _metric_full_name(data_split, metric_name, metric_function_name):
+        return f'{data_split}/{metric_name}/{metric_function_name}'
