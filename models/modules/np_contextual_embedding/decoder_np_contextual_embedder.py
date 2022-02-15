@@ -9,7 +9,7 @@ class DecoderNPContextualEmbedder(BaseNPContextualEmbedder):
     def __init__(self, d_model, nhead, num_layers, dim_feedforward=2048, dropout=0.1):
         super().__init__()
         encoder_layer = torch.nn.TransformerDecoderLayer(d_model, nhead, dim_feedforward, dropout)
-        self.transformer_encoder = torch.nn.TransformerEncoder(encoder_layer, num_layers)
+        self.transformer_encoder = torch.nn.TransformerDecoder(encoder_layer, num_layers)
 
     @abstractmethod
     def forward(self, np_embeddings: torch.tensor, token_embedding: torch.tensor, num_nps) -> torch.tensor:
