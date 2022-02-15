@@ -1,12 +1,15 @@
 from abc import abstractmethod
 
 import torch
-from torch import nn
+
+from models.modules.base_module import BaseModule
 
 
-class BaseWordEmbedder(nn.Module):
-    def __init__(self):
-        super().__init__()
+class BaseWordEmbedder(BaseModule):
+    @property
+    @abstractmethod
+    def tokenizer(self):
+        pass
 
     @abstractmethod
     def forward(self, ids: torch.tensor, mask: torch.tensor) -> torch.tensor:

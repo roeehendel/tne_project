@@ -1,0 +1,13 @@
+name: tne_project
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - python
+  - numpy
+  - pytorch
+  - pytorch-lightning
+  - transformers
+  - torchmetrics
+  - wandb

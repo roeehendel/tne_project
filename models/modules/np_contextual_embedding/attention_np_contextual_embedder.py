@@ -6,14 +6,15 @@ from models.modules.np_contextual_embedding.base_np_contextual_embedder import B
 
 
 class AttentionNPContextualEmbedder(BaseNPContextualEmbedder):
-    def __init__(self, cross_attention: bool, d_model, nhead, num_layers, dim_feedforward=2048, dropout=0.1):
+    def __init__(self, cross_attention: bool, np_embedding_size: int, nhead: int, num_layers: int,
+                 dim_feedforward: int = 2048, dropout: float = 0.1):
         super().__init__()
         self.cross_attention = cross_attention
         if cross_attention:
-            decoder_layer = torch.nn.TransformerDecoderLayer(d_model, nhead, dim_feedforward, dropout)
+            decoder_layer = torch.nn.TransformerDecoderLayer(np_embedding_size, nhead, dim_feedforward, dropout)
             self.transformer = torch.nn.TransformerDecoder(decoder_layer, num_layers)
         else:
-            encoder_layer = torch.nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward, dropout)
+            encoder_layer = torch.nn.TransformerEncoderLayer(np_embedding_size, nhead, dim_feedforward, dropout)
             self.transformer = torch.nn.TransformerEncoder(encoder_layer, num_layers)
 
     @abstractmethod

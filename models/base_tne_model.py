@@ -155,8 +155,9 @@ class BaseTNEModel(LightningModule):
         ids = batch['ids'].to(device, dtype=torch.long)
         mask = batch['mask'].to(device, dtype=torch.long)
         nps = batch['nps'].to(device, dtype=torch.long)
+        num_nps = batch['num_nps'].to(device, dtype=torch.long)
 
-        return ids, mask, nps
+        return ids, mask, nps, num_nps
 
     def _unpack_targets(self, batch):
         device = self.device

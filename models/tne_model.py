@@ -1,87 +1,113 @@
 import torch
-from torch import nn
 
 from models.base_tne_model import BaseTNEModel
+from models.modules.anchor_complement_embedding.base_anchor_complement_embedder import BaseAnchorComplementEmbedder
+from models.modules.anchor_complement_embedding.concat_anchor_complement_embedder import ConcatAnchorComplementEmbedder
+from models.modules.np_contextual_embedding.attention_np_contextual_embedder import AttentionNPContextualEmbedder
+from models.modules.np_contextual_embedding.base_np_contextual_embedder import BaseNPContextualEmbedder
+from models.modules.np_contextual_embedding.passthrough_np_contextual_embedder import PassthroughNPContextualEmbedder
+from models.modules.np_embedding.base_np_embedder import BaseNPEmbedder
+from models.modules.np_embedding.concat_np_embedder import ConcatNPEmbedder
+from models.modules.prediction.basic_predictor import BasicPredictor
+from models.modules.word_embedding.base_word_embedder import BaseWordEmbedder
+from models.modules.word_embedding.roberta_word_embedder import RobertaWordEmbedder
 
 
 class TNEModel(BaseTNEModel):
     def __init__(self, ignore_index: int,
                  learning_rate: float, loss_weight_power: float,
-                 word_embedder_type: str, word_embedder_kwargs: dict,
-                 pretrained_model_name: str,
-                 anchor_complement_embedding_size: int = 512, predictor_hidden: int = 256,
-                 num_layers_to_freeze: int = 0, freeze_embeddings: bool = True, num_layers_to_reinitialize: int = 0):
+
+                 word_embedder_type: str, word_embedder_params: dict,
+                 np_embedder_type: str, np_embedder_params: dict,
+                 np_contextual_embedder_type: str, np_contextual_embedder_params: dict,
+                 anchor_complement_embedder_type: str, anchor_complement_embedder_params: dict,
+                 predictor_type: str, predictor_params: dict
+
+                 ):
         super().__init__(ignore_index, learning_rate, loss_weight_power)
 
-        # Hyper parameters
-        hyper_parameters = ['word_embedder_type']
-        self.save_hyperparameters(
-            'anchor_complement_embedding_size',
-            'predictor_hidden',
-            'num_layers_to_freeze',
-            'freeze_embeddings',
-            'num_layers_to_reinitialize',
-            'pretrained_model_name'
+        # Layers
+        self.word_embedder = self._get_word_embedder(
+            word_embedder_type,
+            word_embedder_params
+        )
+        self.np_embedder = self._get_np_embedder(
+            np_embedder_type, np_embedder_params,
+            input_size=self.word_embedder.output_size
+        )
+        self.np_contextual_embedder = self._get_np_contextual_embedder(
+            np_contextual_embedder_type, np_contextual_embedder_params,
+            input_size=self.np_embedder.output_size
+        )
+        self.anchor_complement_embedder = self._get_anchor_complement_embedder(
+            anchor_complement_embedder_type, anchor_complement_embedder_params,
+            input_size=self.np_contextual_embedder.output_size
+        )
+        self.predictor = self._get_predictor(
+            predictor_type, predictor_params,
+            input_size=self.anchor_complement_embedder.output_size
         )
 
-        # Layers
-        self.word_embedder = self._get_word_embedder()
-        self._tokenizer = self.word_embedder.tokenizer
-        self.anchor_encoder = self._anchor_complement_encoder()
-        self.complement_encoder = self._anchor_complement_encoder()
-        self.predictor = self._predictor()
+        # Hyper parameters
+        self.save_hyperparameters(
+            'word_embedder_type',
+            'word_embedder_params',
+            'np_embedder_type',
+            'np_embedder_params',
+            'anchor_complement_embedder_type',
+            'anchor_complement_embedder_params',
+            'np_contextual_embedder_type',
+            'np_contextual_embedder_params',
+            'predictor_type',
+            'predictor_params'
+        )
 
-        # Layer freezing
-        modules_to_freeze = self.embedder.base_model.encoder.layer[:self.hparams.num_layers_to_freeze]
-        if self.hparams.freeze_embeddings:
-            modules_to_freeze.append(self.embedder.base_model.embeddings)
-        for module in modules_to_freeze:
-            for param in module.parameters():
-                param.requires_grad = False
+    def _get_word_embedder(self, word_embedder_type: str, word_embedder_params: dict,
+                           input_size: int) -> BaseWordEmbedder:
+        word_embedder_types = {
+            'roberta': RobertaWordEmbedder
+        }
+        return word_embedder_types[word_embedder_type](**word_embedder_params, input_size=input_size)
 
-        # Layer reinitialization
-        for i in range(self.hparams.num_layers_to_reinitialize):
-            self.embedder.base_model.encoder.layer[-(1 + i)].apply(self.embedder._init_weights)
+    def _get_np_embedder(self, np_embedder_type: str, np_embedder_params: dict, input_size: int) -> BaseNPEmbedder:
+        np_embedder_types = {
+            'concat': ConcatNPEmbedder
+        }
+        return np_embedder_types[np_embedder_type](**np_embedder_params, input_size=input_size)
 
-    def _get_word_embedder(self):
-        pass
+    def _get_np_contextual_embedder(self, np_contextual_embedder_type: str,
+                                    np_contextual_embedder_params: dict,
+                                    input_size: int) -> BaseNPContextualEmbedder:
+        np_contextual_embedder_types = {
+            'passthrough': PassthroughNPContextualEmbedder,
+            'attention': AttentionNPContextualEmbedder,
+        }
+        return np_contextual_embedder_types[np_contextual_embedder_type](**np_contextual_embedder_params,
+                                                                         input_size=input_size)
+
+    def _get_anchor_complement_embedder(self, anchor_complement_embedder_type: str,
+                                        anchor_complement_embedder_params: dict,
+                                        input_size: int) -> BaseAnchorComplementEmbedder:
+        anchor_complement_embedder_types = {
+            'concat': ConcatAnchorComplementEmbedder
+        }
+        return anchor_complement_embedder_types[anchor_complement_embedder_type](**anchor_complement_embedder_params,
+                                                                                 input_size=input_size)
+
+    def _get_predictor(self, predictor_type: str, predictor_params: dict, input_size: int) -> torch.nn.Module:
+        predictor_types = {
+            'basic': BasicPredictor
+        }
+        return predictor_types[predictor_type](**predictor_params, input_size=input_size)
 
     @property
     def tokenizer(self):
-        return self._tokenizer
+        return self.word_embedder.tokenizer
 
-    def forward(self, ids, mask, nps):
-        encoder_results = self.embedder(ids, attention_mask=mask)
-        embeddings = encoder_results.hidden_states[-1]
-
-        batch_size, num_nps, _ = nps.shape
-        batch_size, num_tokens, embedding_dim = embeddings.shape
-
-        nps_flat = nps.reshape(batch_size, -1)
-        np_start_end_embeddings = embeddings.gather(1, nps_flat[:, :, None].repeat(1, 1, embedding_dim))
-
-        np_embeddings = np_start_end_embeddings.reshape(batch_size, num_nps, -1)
-
-        anchor_embeddings = self.anchor_encoder(np_embeddings)
-        complement_embeddings = self.complement_encoder(np_embeddings)
-
-        anchor_complement_pair_embeddings = torch.cat(
-            [anchor_embeddings[:, None, :, :, None].repeat(1, num_nps, 1, 1, 1),
-             complement_embeddings[:, :, None, :, None].repeat(1, 1, num_nps, 1, 1)],
-            dim=-1
-        ).reshape(batch_size, num_nps ** 2, -1)
-
-        prediction = self.predictor(anchor_complement_pair_embeddings)
-
+    def forward(self, ids, mask, nps, num_nps):
+        word_embeddings = self.word_embedder(ids, mask)
+        np_embeddings = self.np_embedder(word_embeddings, nps)
+        contextual_np_embeddings = self.np_contextual_embedder(np_embeddings, num_nps)
+        anchor_complement_embeddings = self.anchor_complement_embedder(contextual_np_embeddings)
+        prediction = self.predictor(anchor_complement_embeddings)
         return prediction
-
-    def _anchor_complement_encoder(self):
-        embedder_hidden_size = self.embedder.config.hidden_size
-        return nn.Linear(2 * embedder_hidden_size, self.hparams.anchor_complement_embedding_size)
-
-    def _predictor(self):
-        return nn.Sequential(
-            torch.nn.Linear(2 * self.hparams.anchor_complement_embedding_size, self.hparams.predictor_hidden),
-            nn.ReLU(),
-            torch.nn.Linear(self.hparams.predictor_hidden, self.hparams.num_prepositions)
-        )

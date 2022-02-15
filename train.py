@@ -1,10 +1,10 @@
 import os
 
-import wandb
 from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
+import wandb
 from config import CHECKPOINTS_ROOT_DIR, IGNORE_INDEX
 from data_loading.tne_data_module import TNEDataModule
 from models.tne_model import TNEModel
@@ -28,6 +28,7 @@ def train():
         learning_rate=3e-4,
         batch_size=32,
         loss_weight_power=0.32,
+        freeze_embeddings=True,
         num_layers_to_freeze=8,
         num_layers_to_reinitialize=1,
         # pretrained_model_name = 'distilroberta-base'
@@ -44,10 +45,24 @@ def train():
     model = TNEModel(
         ignore_index=IGNORE_INDEX,
         learning_rate=wandb.config.learning_rate,
-        pretrained_model_name=wandb.config.pretrained_model_name,
         loss_weight_power=wandb.config.loss_weight_power,
-        num_layers_to_freeze=wandb.config.num_layers_to_freeze,
-        num_layers_to_reinitialize=wandb.config.num_layers_to_reinitialize
+        word_embedder_type='roberta',
+        word_embedder_params={
+            'pretrained_model_name': wandb.config.pretrained_model_name,
+            'freeze_embeddings': wandb.config.freeze_embeddings,
+            'num_layers_to_freeze': wandb.config.num_layers_to_freeze,
+            'num_layers_to_reinitialize': wandb.config.num_layers_to_reinitialize
+        },
+        np_embedder_type='concat',
+        np_embedder_params={},
+        np_contextual_embedder_type='passthrough',
+        np_contextual_embedder_params={},
+        anchor_complement_embedder_type='concat',
+        anchor_complement_embedder_params={
+            'hidden_size': int
+        },
+        predictor_type='basic',
+        predictor_params={},
     )
     tne_data_module = TNEDataModule(model.tokenizer, batch_size=wandb.config.batch_size,
                                     ignore_index=IGNORE_INDEX, num_workers=4)

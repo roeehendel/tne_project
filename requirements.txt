@@ -1,5 +1,0 @@
-numpy~=1.20.2
-torch
-transformers
-pytorch_lightning
-torchmetrics
