@@ -1,19 +1,29 @@
 program: train.py
 project: TNE
-method: random
+method: bayes
 metric:
-  name: dev/links/f1
+  name: dev/links/f1_epoch
   goal: maximize
 parameters:
-  "learning_rate":
-    "distribution": "log_uniform"
-    "min": -11
-    "max": -6
-  "dropout_p":
-    "distribution": "uniform"
-    "min": 0.0
-    "max": 0.5
-  "loss_weight_power":
-    "distribution": "uniform"
-    "min": 0.0
-    "max": 1.0
+  max_epochs:
+    value: 10
+  learning_rate:
+    distribution: log_uniform
+    min: -9
+    max: -8
+  batch_size:
+    value: 24
+  pretrained_model_name:
+    value: roberta-base
+  loss_weight_power:
+    distribution: uniform
+    min: 0.1
+    max: 0.5
+  num_layers_to_freeze:
+    distribution: int_uniform
+    min: 4
+    max: 8
+  num_layers_to_reinitialize:
+    distribution: int_uniform
+    min: 0
+    max: 4

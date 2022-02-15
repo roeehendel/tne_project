@@ -6,7 +6,7 @@ from pytorch_lightning import Trainer
 
 from config import CHECKPOINTS_ROOT_DIR, IGNORE_INDEX
 from data_loading.tne_data_module import TNEDataModule
-from models.base_tne_model import BaseTNEModel
+from models.tne_model import TNEModel
 from utils.initialization import initialize
 
 
@@ -26,9 +26,9 @@ def predict(run_name: str, data_loaders_num_workers: int, model_checkpoint_to_us
         best_k_models_tuples.sort(key=lambda x: x[1], reverse=True)
         checkpoint_path = best_k_models_tuples[model_checkpoint_to_use][0]
 
-    model = BaseTNEModel.load_from_checkpoint(checkpoint_path=checkpoint_path, ignore_index=IGNORE_INDEX)
+    model = TNEModel.load_from_checkpoint(checkpoint_path=checkpoint_path, ignore_index=IGNORE_INDEX)
 
-    tne_data_module = TNEDataModule(model.tokenizer, num_workers=data_loaders_num_workers)
+    tne_data_module = TNEDataModule(model.tokenizer, batch_size=1, num_workers=data_loaders_num_workers)
     tne_data_module.prepare_data()
     tne_data_module.setup()
 
@@ -50,7 +50,7 @@ def predict(run_name: str, data_loaders_num_workers: int, model_checkpoint_to_us
 
 
 if __name__ == '__main__':
-    RUN_NAME = 'skilled-surf-7'
+    RUN_NAME = 'dauntless-water-93'
     DATA_LOADERS_NUM_WORKERS = 0
 
     predict(RUN_NAME, DATA_LOADERS_NUM_WORKERS, model_checkpoint_to_use=0)

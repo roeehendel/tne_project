@@ -73,14 +73,12 @@ class TNEDataset(Dataset):
         encoding = self.tokenizer(text, max_length=self.max_length, padding='max_length')
         ids = encoding['input_ids']
         mask = encoding['attention_mask']
-        token_type_ids = encoding["token_type_ids"]
         nps = create_nps(item, self.max_nps, encoding)
         num_nps = len(item['nps'])
 
         item = {
             'ids': torch.tensor(ids, dtype=torch.long),
             'mask': torch.tensor(mask, dtype=torch.long),
-            'token_type_ids': torch.tensor(token_type_ids, dtype=torch.long),
             'nps': torch.tensor(nps, dtype=torch.long),
             'num_nps': torch.tensor(num_nps, dtype=torch.long),
         }

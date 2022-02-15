@@ -1,15 +1,13 @@
 import dataclasses
 import math
+from abc import abstractmethod
 from typing import Callable, Dict
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torchmetrics
-import transformers
 from pytorch_lightning import LightningModule
 from torchmetrics import Metric
-from transformers import BertTokenizerFast
 
 from data_loading.tne_class_weights import TNE_CLASS_WEIGHTS
 from data_loading.tne_dataset import PREPOSITION_LIST
@@ -24,37 +22,16 @@ class MetricConfig:
 
 
 class BaseTNEModel(LightningModule):
-    def __init__(self, ignore_index: int,
-                 learning_rate: float = 1e-04,
-                 anchor_complement_embedding_size: int = 512, predictor_hidden: int = 128,
-                 dropout_p: float = 0.1, loss_weight_power: float = 0.5,
-                 num_prepositions: int = len(PREPOSITION_LIST), freeze_embedder: bool = False):
+    def __init__(self, ignore_index: int, learning_rate: float, loss_weight_power,
+                 num_prepositions: int = len(PREPOSITION_LIST)):
         super().__init__()
         # Hyper Parameters
         self.ignore_index = ignore_index
         self.save_hyperparameters(
             "learning_rate",
-            "freeze_embedder",
-            "anchor_complement_embedding_size",
-            "predictor_hidden",
-            "num_prepositions",
-            "dropout_p",
-            "loss_weight_power"
+            "loss_weight_power",
+            "num_prepositions"
         )
-
-        # Tokenizer
-        self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-
-        # Layers
-        self.embedder = transformers.BertModel.from_pretrained('bert-base-uncased')
-        self.anchor_encoder = self._anchor_complement_encoder()
-        self.complement_encoder = self._anchor_complement_encoder()
-        self.predictor = self._predictor()
-
-        # Layer freezing
-        if self.hparams.freeze_embedder:
-            for param in self.embedder.parameters():
-                param.requires_grad = False
 
         # Loss
         self.loss_weight = self._loss_weight()
@@ -96,33 +73,14 @@ class BaseTNEModel(LightningModule):
                     metric = self.metrics[data_split][metric_name][metric_function_name]
                     self.__setattr__(self._metric_full_name(data_split, metric_name, metric_function_name), metric)
 
-    def forward(self, ids, mask, token_type_ids, nps):
-        encoder_results = self.embedder(ids, attention_mask=mask, token_type_ids=token_type_ids)
-        embeddings = encoder_results['last_hidden_state']
-
-        batch_size, num_nps, _ = nps.shape
-        batch_size, num_tokens, embedding_dim = embeddings.shape
-
-        nps_flat = nps.reshape(batch_size, -1)
-        np_start_end_embeddings = embeddings.gather(1, nps_flat[:, :, None].repeat(1, 1, embedding_dim))
-
-        np_embeddings = np_start_end_embeddings.reshape(batch_size, num_nps, -1)
-
-        anchor_embeddings = self.anchor_encoder(np_embeddings)
-        complement_embeddings = self.complement_encoder(np_embeddings)
-
-        anchor_complement_pair_embeddings = torch.cat(
-            [anchor_embeddings[:, None, :, :, None].repeat(1, num_nps, 1, 1, 1),
-             complement_embeddings[:, :, None, :, None].repeat(1, 1, num_nps, 1, 1)],
-            dim=-1
-        ).reshape(batch_size, num_nps ** 2, -1)
-
-        prediction = self.predictor(anchor_complement_pair_embeddings)
-
-        return prediction
+    @property
+    @abstractmethod
+    def tokenizer(self):
+        pass
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.learning_rate)
+        return optimizer
 
     def training_step(self, batch, batch_idx):
         loss, target, predictions = self._train_val_step(batch)
@@ -168,24 +126,6 @@ class BaseTNEModel(LightningModule):
         loss_weight = loss_weight / loss_weight.sum()
         return loss_weight
 
-    def _anchor_complement_encoder(self):
-        embedder_hidden_size = self.embedder.config.hidden_size
-        return nn.Sequential(
-            nn.Linear(2 * embedder_hidden_size, self.hparams.anchor_complement_embedding_size),
-            # nn.ReLU(),
-            # nn.Dropout(self.hparams.dropout_p),
-            # nn.Linear(self.hparams.anchor_complement_embedding_size, self.hparams.anchor_complement_embedding_size),
-        )
-
-    def _predictor(self):
-        return nn.Sequential(
-            torch.nn.Linear(2 * self.hparams.anchor_complement_embedding_size,
-                            self.hparams.predictor_hidden),
-            nn.ReLU(),
-            # nn.Dropout(self.hparams.dropout_p),
-            torch.nn.Linear(self.hparams.predictor_hidden, self.hparams.num_prepositions)
-        )
-
     def _train_val_step(self, batch):
         logits = self._predict_logits(batch)
         targets = self._unpack_targets(batch)
@@ -214,10 +154,9 @@ class BaseTNEModel(LightningModule):
 
         ids = batch['ids'].to(device, dtype=torch.long)
         mask = batch['mask'].to(device, dtype=torch.long)
-        token_type_ids = batch['token_type_ids'].to(device, dtype=torch.long)
         nps = batch['nps'].to(device, dtype=torch.long)
 
-        return ids, mask, token_type_ids, nps
+        return ids, mask, nps
 
     def _unpack_targets(self, batch):
         device = self.device
