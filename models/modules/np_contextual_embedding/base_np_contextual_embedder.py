@@ -9,5 +9,5 @@ class BaseNPContextualEmbedder(nn.Module):
         super().__init__()
 
     @abstractmethod
-    def forward(self, np_embeddings: torch.tensor) -> torch.tensor:
+    def forward(self, np_embeddings: torch.tensor, num_nps) -> torch.tensor:
         pass
