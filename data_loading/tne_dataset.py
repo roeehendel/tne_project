@@ -40,6 +40,20 @@ def create_nps(item: dict, max_nps: int, encoding: BatchEncoding):
     tokens_idx = tokens_idx + [[0, 0] for _ in range(max_nps - len(tokens_idx))]
     return tokens_idx
 
+def create_corefs_labels(item: dict, max_nps: int, ignore_index: int):
+    len_nps = len(item['nps'])
+
+    # get all corefs indexes
+    corefs = [item['coref'][i]['members'] for i in range(len(item['coref']))]
+    corefs_indices = [[int(member[2:]) for member in coref] for coref in corefs]
+
+    corefs_target = np.ones((max_nps, max_nps)) * ignore_index
+    corefs_target[:len_nps, :len_nps] = 0
+    for coref_indices in corefs_indices:
+        for member_index in coref_indices:
+            corefs_target[member_index][coref_indices] = 1
+
+    return corefs_target
 
 class TNEDataset(Dataset):
     def __init__(self, file_path: str, tokenizer: PreTrainedTokenizerFast,
@@ -61,8 +75,10 @@ class TNEDataset(Dataset):
         self.has_targets = has_targets
         if self.has_targets:
             self.targets = [create_target(item, self.max_nps, ignore_index) for item in self.data]
+            self.coref_targets = [create_corefs_labels(item, self.max_nps, ignore_index) for item in self.data]
         else:
             self.targets = None
+            self.coref_targets = None
 
     def __len__(self):
         return len(self.data)
@@ -87,5 +103,6 @@ class TNEDataset(Dataset):
         if self.has_targets:
             targets = self.targets[idx]
             item['targets'] = torch.tensor(targets, dtype=torch.long)
-
+            coref_targets = self.coref_targets[idx]
+            item['coref_targets'] = torch.tensor(coref_targets, dtype=torch.long)
         return item
