@@ -1,12 +1,14 @@
 import os
 
-from pytorch_lightning import Trainer, Callback
+import torch
+import wandb
+from pytorch_lightning import Callback, Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
-import wandb
-from config import CHECKPOINTS_ROOT_DIR, IGNORE_INDEX
+from config import IGNORE_INDEX, CHECKPOINTS_ROOT_DIR
 from data_loading.tne_data_module import TNEDataModule
+from models.default_model_architecture import DEFAULT_ARCHITECTURE_CONFIG
 from models.tne_model import TNEModel
 from utils.initialization import initialize
 
@@ -23,22 +25,18 @@ class SaveTopKModelsCallback(Callback):
 
 def train():
     initialize(0)
+
     hyperparameter_defaults = dict(
         max_epochs=100,
-        learning_rate=3e-4,
-        batch_size=32,
-        loss_weight_power=0.32,
-        freeze_embeddings=True,
-        num_layers_to_freeze=8,
-        num_layers_to_reinitialize=1,
-        # pretrained_model_name = 'distilroberta-base'
-        pretrained_model_name='roberta-base',
-        # pretrained_model_name='roberta-large',
+        learning_rate=1e-4,  # 3e-4
+        batch_size=8,
+        loss_weight_power=0.25,
+        model_architecture=DEFAULT_ARCHITECTURE_CONFIG
     )
 
     wandb.init(project='TNE', config=hyperparameter_defaults)
 
-    sweep_iteration_dir_path = os.path.join(CHECKPOINTS_ROOT_DIR, wandb.run.name)
+    run_dir_path = os.path.join(CHECKPOINTS_ROOT_DIR, wandb.run.name)
 
     wandb_logger = WandbLogger()
 
@@ -46,39 +44,22 @@ def train():
         ignore_index=IGNORE_INDEX,
         learning_rate=wandb.config.learning_rate,
         loss_weight_power=wandb.config.loss_weight_power,
-        word_embedder_type='roberta',
-        word_embedder_params={
-            'pretrained_model_name': wandb.config.pretrained_model_name,
-            'freeze_embeddings': wandb.config.freeze_embeddings,
-            'num_layers_to_freeze': wandb.config.num_layers_to_freeze,
-            'num_layers_to_reinitialize': wandb.config.num_layers_to_reinitialize
-        },
-        np_embedder_type='concat',
-        np_embedder_params={},
-        np_contextual_embedder_type='passthrough',
-        np_contextual_embedder_params={},
-        anchor_complement_embedder_type='concat',
-        anchor_complement_embedder_params={
-            'hidden_size': int
-        },
-        predictor_type='basic',
-        predictor_params={},
+        architecture_config=wandb.config.model_architecture
     )
     tne_data_module = TNEDataModule(model.tokenizer, batch_size=wandb.config.batch_size,
-                                    ignore_index=IGNORE_INDEX, num_workers=4)
+                                    ignore_index=IGNORE_INDEX, num_workers=0)
 
     monitor_metric = "dev/links/f1"
     checkpoint_callback = ModelCheckpoint(
         monitor=monitor_metric,
-        dirpath=sweep_iteration_dir_path,
+        dirpath=run_dir_path,
         filename='tne-model-{epoch:02d}-{dev/links/f1:.2f}',
         save_top_k=2,
         mode="max",
         save_last=False,
-        # auto_insert_metric_name=True,
         every_n_epochs=1
     )
-    save_top_k_callback = SaveTopKModelsCallback(checkpoint_callback, checkpoints_directory=sweep_iteration_dir_path)
+    save_top_k_callback = SaveTopKModelsCallback(checkpoint_callback, checkpoints_directory=run_dir_path)
 
     early_stop_callback = EarlyStopping(
         monitor=monitor_metric,
@@ -93,15 +74,21 @@ def train():
         # early_stop_callback
     ]
 
-    trainer = Trainer(
-        max_epochs=wandb.config.max_epochs,
-        gpus=1,
-        logger=wandb_logger,
-        log_every_n_steps=50,
-        callbacks=callbacks,
-        precision=16, amp_backend="native"
-        # profiler='simple'
-    )
+    trainer_kwargs = {
+        'max_epochs': wandb.config.max_epochs,
+        'gpus': torch.cuda.device_count(),
+        'logger': wandb_logger,
+        'log_every_n_steps': 50,
+        'callbacks': callbacks,
+    }
+
+    if torch.cuda.device_count() > 0:
+        trainer_kwargs.update({
+            'precision': 16,
+            'amp_backend': "native"
+        })
+
+    trainer = Trainer(**trainer_kwargs)
     trainer.fit(model, tne_data_module)
 
 

@@ -1,15 +1,7 @@
-from abc import abstractmethod
+from abc import ABC
 
-import torch
-from torch import nn
-
-from models.modules.base_module import BaseModule
+from models.modules.tne_base_module import TNEBaseModule
 
 
-class BaseAnchorComplementEmbedder(BaseModule):
-    def __init__(self):
-        super().__init__()
-
-    @abstractmethod
-    def forward(self, np_embeddings: torch.tensor) -> torch.tensor:
-        pass
+class BaseAnchorComplementEmbedder(TNEBaseModule, ABC):
+    pass

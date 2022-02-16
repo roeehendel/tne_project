@@ -1,16 +1,10 @@
 from abc import abstractmethod
 
-import torch
-
-from models.modules.base_module import BaseModule
+from models.modules.tne_base_module import TNEBaseModule
 
 
-class BaseWordEmbedder(BaseModule):
+class BaseWordEmbedder(TNEBaseModule):
     @property
     @abstractmethod
     def tokenizer(self):
-        pass
-
-    @abstractmethod
-    def forward(self, ids: torch.tensor, mask: torch.tensor) -> torch.tensor:
         pass

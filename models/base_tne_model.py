@@ -10,7 +10,7 @@ from pytorch_lightning import LightningModule
 from torchmetrics import Metric
 
 from data_loading.tne_class_weights import TNE_CLASS_WEIGHTS
-from data_loading.tne_dataset import PREPOSITION_LIST
+from data_loading.tne_dataset import NUM_PREPOSITIONS
 from metrics.custom_f1 import CustomF1
 
 
@@ -23,7 +23,7 @@ class MetricConfig:
 
 class BaseTNEModel(LightningModule):
     def __init__(self, ignore_index: int, learning_rate: float, loss_weight_power,
-                 num_prepositions: int = len(PREPOSITION_LIST)):
+                 num_prepositions: int = NUM_PREPOSITIONS):
         super().__init__()
         # Hyper Parameters
         self.ignore_index = ignore_index
@@ -141,7 +141,7 @@ class BaseTNEModel(LightningModule):
 
     def _predict_logits(self, batch):
         model_inputs = self._unpack_model_inputs(batch)
-        prediction = self.forward(*model_inputs)
+        prediction = self.forward(model_inputs)
         return prediction
 
     def _flatten_logits(self, logits):
@@ -157,7 +157,7 @@ class BaseTNEModel(LightningModule):
         nps = batch['nps'].to(device, dtype=torch.long)
         num_nps = batch['num_nps'].to(device, dtype=torch.long)
 
-        return ids, mask, nps, num_nps
+        return dict(ids=ids, mask=mask, nps=nps, num_nps=num_nps)
 
     def _unpack_targets(self, batch):
         device = self.device

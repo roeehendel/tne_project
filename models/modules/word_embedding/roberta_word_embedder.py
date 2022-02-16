@@ -1,4 +1,3 @@
-import torch
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 
 from models.modules.word_embedding.base_word_embedder import BaseWordEmbedder
@@ -39,7 +38,10 @@ class RobertaWordEmbedder(BaseWordEmbedder):
     def tokenizer(self):
         return self._tokenizer
 
-    def forward(self, ids: torch.tensor, mask: torch.tensor) -> torch.tensor:
+    def forward(self, inputs: dict, intermediate_outputs: dict) -> dict:
+        ids = inputs['ids']
+        mask = inputs['mask']
+
         encoder_results = self._embedder(ids, attention_mask=mask)
         embeddings = encoder_results.hidden_states[-1]
-        return embeddings
+        return dict(embeddings=embeddings)

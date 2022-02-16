@@ -1,11 +1,7 @@
-from abc import abstractmethod
+from abc import ABC
 
-import torch
-
-from models.modules.base_module import BaseModule
+from models.modules.tne_base_module import TNEBaseModule
 
 
-class BaseNPEmbedder(BaseModule):
-    @abstractmethod
-    def forward(self, word_embeddings: torch.tensor, nps: torch.tensor) -> torch.tensor:
-        pass
+class BaseNPEmbedder(TNEBaseModule, ABC):
+    pass

@@ -1,14 +1,7 @@
-from abc import abstractmethod
+from abc import ABC
 
-import torch
-
-from models.modules.base_module import BaseModule
+from models.modules.tne_base_module import TNEBaseModule
 
 
-class BasePredictor(BaseModule):
-    def __init__(self):
-        super().__init__()
-
-    @abstractmethod
-    def forward(self, anchor_complement_embeddings: torch.tensor) -> torch.tensor:
-        pass
+class BasePredictor(TNEBaseModule, ABC):
+    pass

@@ -10,6 +10,7 @@ from data_loading.tne_data_decompression import decompress_tne_dataset
 PREPOSITION_LIST = ['no-relation', 'of', 'against', 'in', 'by', 'on', 'about', 'with', 'after', 'member(s) of',
                     'to', 'from', 'for', 'among', 'under', 'at', 'between', 'during', 'near', 'over', 'before',
                     'inside', 'outside', 'into', 'around']
+NUM_PREPOSITIONS = len(PREPOSITION_LIST)
 
 
 def create_target(item: dict, max_nps: int, ignore_index: int):

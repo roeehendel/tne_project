@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 
 from data_loading.tne_data_paths import TRAIN_DATASET
-from data_loading.tne_dataset import PREPOSITION_LIST
+from data_loading.tne_dataset import PREPOSITION_LIST, NUM_PREPOSITIONS
 
 TNE_CLASS_WEIGHTS = np.array([8.58832905e-01, 3.46315044e-02, 2.97061955e-03, 3.21925512e-02,
                               7.32956338e-03, 5.02182032e-03, 4.80661299e-03, 6.51461969e-03,
@@ -22,7 +22,7 @@ def calculate_tne_class_weights():
 
     data = [json.loads(line) for line in lines]
 
-    amount_in_each_class = np.zeros(len(PREPOSITION_LIST), dtype=int)
+    amount_in_each_class = np.zeros(NUM_PREPOSITIONS, dtype=int)
 
     for example in tqdm(data):
         anchor_complement_with_relation = []
