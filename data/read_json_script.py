@@ -1,5 +1,4 @@
 import json
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -38,9 +37,9 @@ def get_numer_of_tuples_with_more_than_one_relation(json_path):
         total_nps += len(anchoer_complement_tuples_dict)
         values = anchoer_complement_tuples_dict.values()
         greater_than_one_nps += len([val for val in values if val > 1])
-        print(greater_than_one_nps)
-        print(total_nps)
-        return greater_than_one_nps, total_nps
+    print(greater_than_one_nps)
+    print(total_nps)
+    return greater_than_one_nps, total_nps
 """
 SCRIPT FOR CALC WEIGHTS IN EACH CLASS
 """
@@ -86,6 +85,9 @@ def get_max_length_np_from_json(json_path: str):
             max_len = max(max_len, current_len)
     return max_len
 
+"""
+SCRIPT FOR CALC MAX LEN OF NP
+"""
 
 def create_histogram_length_nps_from_json(json_path: str):
     lines = open_file_json(json_path)
@@ -100,11 +102,32 @@ def create_histogram_length_nps_from_json(json_path: str):
     # plt.show()
     return (np.array(nps_len) > 10).mean()
 
-"""
-SCRIPT FOR CALC MAX LEN OF NP
-"""
+# max_dev_train = max(get_max_length_np_from_json('train.jsonl'), get_max_length_np_from_json('dev.jsonl'))
+# print(create_histogram_length_nps_from_json('train.jsonl'))
+# print(create_histogram_length_nps_from_json('dev.jsonl'))
 
-max_dev_train = max(get_max_length_np_from_json('train.jsonl'), get_max_length_np_from_json('dev.jsonl'))
-print(create_histogram_length_nps_from_json('train.jsonl'))
-print(create_histogram_length_nps_from_json('dev.jsonl'))
+"""
+SCRIPT FOR CREATE COREFS TARGETS
+"""
+def create_corefs_labels(json_path : str, max_nps: int, ignore_index: int):
+    lines = open_file_json(json_path)
+    for i in range(len(lines)):
+        item = json.loads(lines[i])
+
+        len_nps = len(item['nps'])
+
+        # get all corefs indexes
+        corefs = [item['coref'][i]['members'] for i in range(len(item['coref']))]
+        corefs_indices = [[int(member[2:]) for member in coref] for coref in corefs]
+
+        corefs_target = np.ones((max_nps, max_nps)) * ignore_index
+        corefs_target[:len_nps, :len_nps] = 0
+        for coref_indices in corefs_indices:
+            for member_index in coref_indices:
+                corefs_target[member_index][coref_indices] = 1
+
+        return corefs_target
+
+# create_corefs_labels('dev.jsonl', 50, -100)
+# get_numer_of_tuples_with_more_than_one_relation('train.jsonl')
 
