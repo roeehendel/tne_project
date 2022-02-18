@@ -32,11 +32,10 @@ class AttentionNPEmbedder(BaseNPEmbedder):
         mask = (torch.arange(max_nps)[None, :].to(device) >= num_nps[:, None]) * -1
 
         start_idx = nps[:, :, 0]
-        end_idx = nps[:, :, 1] + mask # in this way we will ignore idx after num_nps
+        end_idx = nps[:, :, 1] + mask  # in this way we will ignore idx after num_nps
 
         attn_mask = torch.arange(0, num_tokens, device=device).expand((batch_size, max_nps, num_tokens))
-        attn_mask = ((attn_mask >= start_idx.unsqueeze(2)) * (attn_mask <= end_idx.unsqueeze(2))
-                     * end_idx.unsqueeze(2) != -1)
+        attn_mask = ((attn_mask >= start_idx.unsqueeze(2)) * (attn_mask <= end_idx.unsqueeze(2)) * (end_idx.unsqueeze(2) != -1))
 
         attn_mask = torch.log(attn_mask.to(torch.float))
 
@@ -44,4 +43,4 @@ class AttentionNPEmbedder(BaseNPEmbedder):
         attn_scores = attn_scores.expand((batch_size, max_nps, num_tokens))
         attn_scores = attn_mask + attn_scores
         del attn_mask
-        return torch.softmax(attn_scores, dim=2)
+        return torch.softmax(attn_scores, dim=-1)
