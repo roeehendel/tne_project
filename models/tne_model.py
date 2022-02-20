@@ -10,7 +10,6 @@ from models.modules.coref_prediction.coref_predictor import CorefPredictor
 from models.modules.np_contextual_embedding.attention_np_contextual_embedder import AttentionNPContextualEmbedder
 from models.modules.np_contextual_embedding.coref_np_contextual_embedder import CorefNPContextualEmbedder
 from models.modules.np_contextual_embedding.passthrough_np_contextual_embedder import PassthroughNPContextualEmbedder
-from models.modules.np_embedding.attention_concat_np_embedder import AttentionConcatNPEmbedder
 from models.modules.np_embedding.attention_np_embedder import AttentionNPEmbedder
 from models.modules.np_embedding.concat_np_embedder import ConcatNPEmbedder
 from models.modules.prediction.attention_predictor import AttentionPredictor
@@ -27,8 +26,7 @@ class TNEModel(BaseTNEModel):
         },
         np_embedder={
             "concat": ConcatNPEmbedder,
-            "attention": AttentionNPEmbedder,
-            "attention_concat": AttentionConcatNPEmbedder,
+            "attention": AttentionNPEmbedder
         },
         coref_predictor={
             "basic": CorefPredictor,

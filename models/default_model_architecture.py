@@ -30,13 +30,6 @@ _NP_EMBEDDER = {
     'attention': dict(
         type='attention',
         params={}
-    ),
-    'attention_concat': dict(
-        type='attention_concat',
-        params={
-            'nhead': 8,
-            'num_layers': 2,
-        }
     )
 }
 
