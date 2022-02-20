@@ -3,7 +3,7 @@ import torch
 from models.modules.np_contextual_embedding.base_np_contextual_embedder import BaseNPContextualEmbedder
 
 
-class AttentionNPContextualEmbedder(BaseNPContextualEmbedder):
+class TransformerNPContextualEmbedder(BaseNPContextualEmbedder):
     def __init__(self, input_size: int, cross_attention: bool, nhead: int, num_layers: int,
                  dim_feedforward: int = 2048, dropout: float = 0.1):
         super().__init__(input_size)

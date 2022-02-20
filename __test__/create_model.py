@@ -1,5 +1,5 @@
 from config import IGNORE_INDEX
-from models.default_model_architecture import DEFAULT_ARCHITECTURE_CONFIG
+from models.default_architecture_config import DEFAULT_ARCHITECTURE_CONFIG
 from models.tne_model import TNEModel
 
 

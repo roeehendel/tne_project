@@ -7,12 +7,12 @@ from models.modules.anchor_complement_embedding.concat_anchor_complement_embedde
 from models.modules.anchor_complement_embedding.multiplicative_anchor_complement_embedder import \
     MultiplicativeAnchorComplementEmbedder
 from models.modules.coref_prediction.coref_predictor import CorefPredictor
-from models.modules.np_contextual_embedding.attention_np_contextual_embedder import AttentionNPContextualEmbedder
+from models.modules.np_contextual_embedding.attention_np_contextual_embedder import TransformerNPContextualEmbedder
 from models.modules.np_contextual_embedding.coref_np_contextual_embedder import CorefNPContextualEmbedder
 from models.modules.np_contextual_embedding.passthrough_np_contextual_embedder import PassthroughNPContextualEmbedder
 from models.modules.np_embedding.attention_np_embedder import AttentionNPEmbedder
 from models.modules.np_embedding.concat_np_embedder import ConcatNPEmbedder
-from models.modules.prediction.attention_predictor import AttentionPredictor
+from models.modules.prediction.attention_predictor import TransformerPredictor
 from models.modules.prediction.basic_predictor import BasicPredictor
 from models.modules.word_embedding.roberta_word_embedder import RobertaWordEmbedder
 from models.modules.word_embedding.spanbert_word_embedder import SpanBertWordEmbedder
@@ -33,7 +33,7 @@ class TNEModel(BaseTNEModel):
         },
         np_contextual_embedder={
             "passthrough": PassthroughNPContextualEmbedder,
-            "attention": AttentionNPContextualEmbedder,
+            "transformer": TransformerNPContextualEmbedder,
             "coref": CorefNPContextualEmbedder,
         },
         anchor_complement_embedder={
@@ -42,7 +42,7 @@ class TNEModel(BaseTNEModel):
         },
         predictor={
             "basic": BasicPredictor,
-            "attention": AttentionPredictor,
+            "transformer": TransformerPredictor,
         },
     )
 

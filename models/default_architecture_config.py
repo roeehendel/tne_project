@@ -33,15 +33,14 @@ _NP_EMBEDDER = {
     )
 }
 
+_COREF_PREDICTOR = {
+    'basic': dict(
+        type='basic',
+        params={}
+    )
+}
+
 _NP_CONTEXTUAL_EMBEDDER = {
-    'attention': dict(
-        type='attention',
-        params={
-            'cross_attention': True,
-            'nhead': 12,
-            'num_layers': 4,
-        }
-    ),
     'passthrough': dict(
         type='passthrough',
         params={}
@@ -49,7 +48,26 @@ _NP_CONTEXTUAL_EMBEDDER = {
     'coref': dict(
         type='coref',
         params={}
-    )
+    ),
+    'transformer': dict(
+        type='transformer',
+        params={
+            'cross_attention': True,
+            'nhead': 12,
+            'num_layers': 4,
+        }
+    ),
+}
+
+_ANCHOR_COMPLEMENT_EMBEDDER = {
+    'concat': dict(
+        type='concat',
+        params={}
+    ),
+    'multiplicative': dict(
+        type='multiplicative',
+        params={}
+    ),
 }
 
 _PREDICTOR = {
@@ -60,8 +78,8 @@ _PREDICTOR = {
             'num_prepositions': NUM_PREPOSITIONS,
         }
     ),
-    'attention': dict(
-        type='attention',
+    'transformer': dict(
+        type='transformer',
         params={
             'hidden_size': 32,
             'num_prepositions': NUM_PREPOSITIONS,
@@ -74,15 +92,8 @@ _PREDICTOR = {
 DEFAULT_ARCHITECTURE_CONFIG = dict(
     word_embedder=_WORD_EMEDDER['roberta'],
     np_embedder=_NP_EMBEDDER['attention'],
-    coref_predictor=dict(
-        type='basic',
-        params={}
-    ),
+    coref_predictor=_COREF_PREDICTOR['basic'],
     np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],
-    anchor_complement_embedder=dict(
-        # type='concat',
-        type='multiplicative',
-        params={}
-    ),
+    anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
     predictor=_PREDICTOR['basic']
 )

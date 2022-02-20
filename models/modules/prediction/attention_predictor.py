@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from models.modules.prediction.base_predictor import BasePredictor
 
 
-class AttentionPredictor(BasePredictor):
+class TransformerPredictor(BasePredictor):
     @property
     def output_size(self):
         return self._num_prepositions

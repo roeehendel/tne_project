@@ -8,7 +8,7 @@ from pytorch_lightning.loggers import WandbLogger
 
 from config import IGNORE_INDEX, CHECKPOINTS_ROOT_DIR
 from data_loading.tne_data_module import TNEDataModule
-from models.default_model_architecture import DEFAULT_ARCHITECTURE_CONFIG
+from models.default_architecture_config import DEFAULT_ARCHITECTURE_CONFIG
 from models.tne_model import TNEModel
 from utils.initialization import initialize
 
