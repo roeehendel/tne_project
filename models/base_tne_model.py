@@ -83,25 +83,29 @@ class BaseTNEModel(LightningModule):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        loss, target, predictions = self._train_val_step(batch)
+        tne_loss, coref_loss, loss, tne_targets, predictions = self._train_val_step(batch)
 
         self.log('train/loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self._calc_metrics(target, predictions, 'train')
+        self.log('train/tne_loss', tne_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('train/coref_loss', coref_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self._calc_metrics(tne_targets, predictions, 'train')
 
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss, target, predictions = self._train_val_step(batch)
+        tne_loss, coref_loss, loss, tne_targets, tne_predictions = self._train_val_step(batch)
 
         self.log('dev/loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self._calc_metrics(target, predictions, 'dev')
+        self.log('dev/tne_loss', tne_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('dev/coref_loss', coref_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self._calc_metrics(tne_targets, tne_predictions, 'dev')
 
         return loss
 
     def test_step(self, batch, batch_idx):
         num_nps = batch['num_nps']
-        logits = self._predict_logits(batch)
-        predictions = logits.argmax(dim=-1)
+        tne_logits, coref_logits = self._predict_logits(batch)
+        predictions = tne_logits.argmax(dim=-1)
 
         batch_size, max_num_nps_squared = predictions.shape
         max_num_nps = int(math.sqrt(max_num_nps_squared))
@@ -127,22 +131,31 @@ class BaseTNEModel(LightningModule):
         return loss_weight
 
     def _train_val_step(self, batch):
-        logits = self._predict_logits(batch)
-        targets = self._unpack_targets(batch)
+        tne_logits, coref_logits = self._predict_logits(batch)
+        tne_targets, coref_targets = self._unpack_targets(batch)
 
-        logits_flat = self._flatten_logits(logits)
-        predictions = logits_flat.argmax(dim=-1)
-        targets = targets.flatten()
+        logits_flat = self._flatten_logits(tne_logits)
+        tne_predictions = logits_flat.argmax(dim=-1)
+        tne_targets = tne_targets.flatten()
 
         self.loss_weight = self.loss_weight.to(self.device)
-        loss = F.cross_entropy(logits_flat, targets, ignore_index=self.ignore_index, weight=self.loss_weight)
+        tne_loss = F.cross_entropy(logits_flat, tne_targets, ignore_index=self.ignore_index, weight=self.loss_weight)
 
-        return loss, targets, predictions
+        mask = coref_targets != self.ignore_index
+        coref_loss = F.binary_cross_entropy_with_logits(coref_logits[mask], coref_targets[mask].float())
+
+        use_coref_loss = True
+
+        loss = tne_loss
+        if use_coref_loss:
+            loss += coref_loss
+
+        return tne_loss, coref_loss, loss, tne_targets, tne_predictions
 
     def _predict_logits(self, batch):
         model_inputs = self._unpack_model_inputs(batch)
-        prediction = self.forward(model_inputs)
-        return prediction
+        model_outputs = self.forward(model_inputs)
+        return model_outputs['tne_logits'], model_outputs['coref_logits']
 
     def _flatten_logits(self, logits):
         num_classes = logits.shape[-1]
@@ -161,8 +174,9 @@ class BaseTNEModel(LightningModule):
 
     def _unpack_targets(self, batch):
         device = self.device
-        targets = batch['targets'].to(device, dtype=torch.long)
-        return targets
+        tne_targets = batch['targets'].to(device, dtype=torch.long)
+        coref_targets = batch['coref_targets'].to(device, dtype=torch.long)
+        return tne_targets, coref_targets
 
     def _calc_metrics(self, targets, predictions, data_split):
         targets_masked = targets[targets != self.ignore_index]

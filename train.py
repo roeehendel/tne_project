@@ -28,9 +28,9 @@ def train():
 
     hyperparameter_defaults = dict(
         max_epochs=100,
-        learning_rate=1e-4,  # 3e-4
-        batch_size=8,
-        loss_weight_power=0.25,
+        learning_rate=1e-4,  # 1e-5
+        batch_size=32,
+        loss_weight_power=0,
         model_architecture=DEFAULT_ARCHITECTURE_CONFIG
     )
 
@@ -80,6 +80,7 @@ def train():
         'logger': wandb_logger,
         'log_every_n_steps': 50,
         'callbacks': callbacks,
+        # 'accumulate_grad_batches': 8
     }
 
     if torch.cuda.device_count() > 0:

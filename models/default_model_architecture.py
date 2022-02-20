@@ -1,5 +1,45 @@
 from data_loading.tne_dataset import NUM_PREPOSITIONS
 
+_WORD_EMEDDER = {
+    'roberta': dict(
+        type='roberta',
+        params={
+            # 'pretrained_model_name': 'roberta-large',
+            'pretrained_model_name': 'roberta-base',
+            'freeze_embeddings': True,
+            'num_layers_to_freeze': 8,
+            'num_layers_to_reinitialize': 1
+        }
+    ),
+    'spanbert': dict(
+        type='spanbert',
+        params={
+            'pretrained_model_name': 'SpanBERT/spanbert-base-cased',
+            'freeze_embeddings': True,
+            'num_layers_to_freeze': 8,
+            'num_layers_to_reinitialize': 1
+        }
+    ),
+}
+
+_NP_EMBEDDER = {
+    'concat': dict(
+        type='concat',
+        params={}
+    ),
+    'attention': dict(
+        type='attention',
+        params={}
+    ),
+    'attention_concat': dict(
+        type='attention_concat',
+        params={
+            'nhead': 8,
+            'num_layers': 2,
+        }
+    )
+}
+
 _NP_CONTEXTUAL_EMBEDDER = {
     'attention': dict(
         type='attention',
@@ -13,6 +53,10 @@ _NP_CONTEXTUAL_EMBEDDER = {
         type='passthrough',
         params={}
     ),
+    'coref': dict(
+        type='coref',
+        params={}
+    )
 }
 
 _PREDICTOR = {
@@ -35,23 +79,17 @@ _PREDICTOR = {
 }
 
 DEFAULT_ARCHITECTURE_CONFIG = dict(
-    word_embedder=dict(
-        type='roberta',
-        params={
-            'pretrained_model_name': 'roberta-base',
-            'freeze_embeddings': True,
-            'num_layers_to_freeze': 8,
-            'num_layers_to_reinitialize': 1
-        }
-    ),
-    np_embedder=dict(
-        type='concat',
+    word_embedder=_WORD_EMEDDER['roberta'],
+    np_embedder=_NP_EMBEDDER['attention'],
+    coref_predictor=dict(
+        type='basic',
         params={}
     ),
-    np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
+    np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],
     anchor_complement_embedder=dict(
-        type='concat',
+        # type='concat',
+        type='multiplicative',
         params={}
     ),
-    predictor=_PREDICTOR['attention']
+    predictor=_PREDICTOR['basic']
 )

@@ -29,18 +29,21 @@ class AttentionNPEmbedder(BaseNPEmbedder):
         batch_size, num_tokens, embedding_dim = word_embeddings.shape
         device = word_embeddings.device
 
-        mask = (torch.arange(max_nps)[None, :].to(device) >= num_nps[:, None]) * -1
+        mask = (torch.arange(max_nps)[None, :].to(device) >= num_nps[:, None])
 
         start_idx = nps[:, :, 0]
-        end_idx = nps[:, :, 1] + mask  # in this way we will ignore idx after num_nps
+        end_idx = nps[:, :, 1]
 
         attn_mask = torch.arange(0, num_tokens, device=device).expand((batch_size, max_nps, num_tokens))
-        attn_mask = ((attn_mask >= start_idx.unsqueeze(2)) * (attn_mask <= end_idx.unsqueeze(2)) * (end_idx.unsqueeze(2) != -1))
-
-        attn_mask = torch.log(attn_mask.to(torch.float))
+        attn_mask = ((attn_mask >= start_idx.unsqueeze(2)) &
+                     (attn_mask <= end_idx.unsqueeze(2)) &
+                     (~mask.unsqueeze(2)))
 
         attn_scores = self.attn(word_embeddings).transpose(1, 2)  # [batch ,1, num_tokens]
-        attn_scores = attn_scores.expand((batch_size, max_nps, num_tokens))
-        attn_scores = attn_mask + attn_scores
-        del attn_mask
-        return torch.softmax(attn_scores, dim=-1)
+        attn_scores = attn_scores.expand((batch_size, max_nps, num_tokens)).clone()
+        attn_scores[~attn_mask] = -torch.inf
+
+        attention_weights = torch.softmax(attn_scores, dim=-1)
+        attention_weights = torch.nan_to_num(attention_weights)
+
+        return attention_weights

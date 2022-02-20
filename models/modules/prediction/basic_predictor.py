@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 
+from data_loading.tne_class_weights import TNE_CLASS_WEIGHTS
 from models.modules.prediction.base_predictor import BasePredictor
 
 
@@ -16,6 +17,8 @@ class BasicPredictor(BasePredictor):
 
         self._linear1 = torch.nn.Linear(input_size, hidden_size)
         self._linear2 = torch.nn.Linear(hidden_size, num_prepositions)
+
+        self._linear2.bias.data.copy_(torch.log(torch.tensor(TNE_CLASS_WEIGHTS)))
 
     def forward(self, inputs: dict, intermediate_outputs: dict) -> dict:
         anchor_complement_embeddings = intermediate_outputs["anchor_complement_embedder"]["embeddings"]
