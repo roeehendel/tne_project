@@ -40,6 +40,7 @@ def create_nps(item: dict, max_nps: int, encoding: BatchEncoding):
     tokens_idx = tokens_idx + [[0, 0] for _ in range(max_nps - len(tokens_idx))]
     return tokens_idx
 
+
 def create_corefs_labels(item: dict, max_nps: int, ignore_index: int):
     len_nps = len(item['nps'])
 
@@ -54,6 +55,24 @@ def create_corefs_labels(item: dict, max_nps: int, ignore_index: int):
             corefs_target[member_index][coref_indices] = 1
 
     return corefs_target
+
+
+def create_multi_label_target(item: dict, max_nps: int, ignore_index: int):
+    len_nps = len(item['nps'])
+    np_relations = item['np_relations']
+    multi_label_target = np.ones((max_nps, max_nps, NUM_PREPOSITIONS)) * ignore_index
+    multi_label_target[:len_nps, :len_nps, :] = 0
+
+    # go over all the np relations and update multi_label_target
+    for np_relation in np_relations:
+        preposition_index = PREPOSITION_LIST.index(np_relation['preposition'])
+        anchor_index = int(np_relation['anchor'][2:])
+        complement_index = int(np_relation['complement'][2:])
+        multi_label_target[anchor_index, complement_index, preposition_index] = 1
+    # update target where anchor and complement are same to -100 to ignore them
+    multi_label_target[np.arange(len_nps), np.arange(len_nps), :] = ignore_index
+    return multi_label_target
+
 
 class TNEDataset(Dataset):
     def __init__(self, file_path: str, tokenizer: PreTrainedTokenizerFast,
@@ -76,9 +95,11 @@ class TNEDataset(Dataset):
         if self.has_targets:
             self.targets = [create_target(item, self.max_nps, ignore_index) for item in self.data]
             self.coref_targets = [create_corefs_labels(item, self.max_nps, ignore_index) for item in self.data]
+            self.multi_label_targets = [create_multi_label_target(item, self.max_nps, ignore_index) for item in self.data]
         else:
             self.targets = None
             self.coref_targets = None
+            self.multi_label_targets = None
 
     def __len__(self):
         return len(self.data)
@@ -105,4 +126,6 @@ class TNEDataset(Dataset):
             item['targets'] = torch.tensor(targets, dtype=torch.long)
             coref_targets = self.coref_targets[idx]
             item['coref_targets'] = torch.tensor(coref_targets, dtype=torch.long)
+            multi_label_targets = self.multi_label_targets[idx]
+            item['multi_label_targets'] = torch.tensor(multi_label_targets, dtype=torch.long)
         return item

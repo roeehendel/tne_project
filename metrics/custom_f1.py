@@ -9,15 +9,17 @@ class CustomF1(Metric):
         self.add_state("predictions_relations", default=torch.tensor(0), dist_reduce_fx="sum")
         self.add_state("true_relations", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, preds: torch.Tensor, target: torch.Tensor):
+    def update(self, preds: torch.Tensor, multi_label_target: torch.Tensor):
         # number of relations that are different from 0 - in our prediction
         relation_preds = preds != 0
 
         # number of relations that are different from 0 - in the true labels
-        relation_true = target != 0
+        relation_true = multi_label_target.sum(dim=1) != 0
+
+        num_preds = preds.shape[0]
 
         # Relationships we correctly predicted from those other than 0
-        true_positives = (preds == target) & relation_preds
+        true_positives = multi_label_target[torch.arange(num_preds), preds].bool() & relation_preds
 
         self.true_positive += true_positives.sum().item()
         self.predictions_relations += relation_preds.sum().item()
