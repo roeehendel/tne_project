@@ -1,17 +1,25 @@
 from data_loading.tne_dataset import NUM_PREPOSITIONS
 
 _WORD_EMEDDER = {
-    'roberta': dict(
+    'roberta-base': dict(
         type='roberta',
         params={
-            # 'pretrained_model_name': 'roberta-large',
             'pretrained_model_name': 'roberta-base',
             'freeze_embeddings': True,
             'num_layers_to_freeze': 8,
             'num_layers_to_reinitialize': 1
         }
     ),
-    'spanbert': dict(
+    'roberta-large': dict(
+        type='roberta',
+        params={
+            'pretrained_model_name': 'roberta-large',
+            'freeze_embeddings': True,
+            'num_layers_to_freeze': 8,
+            'num_layers_to_reinitialize': 1
+        }
+    ),
+    'spanbert-base': dict(
         type='spanbert',
         params={
             'pretrained_model_name': 'SpanBERT/spanbert-base-cased',
@@ -89,8 +97,8 @@ _PREDICTOR = {
     )
 }
 
-DEFAULT_ARCHITECTURE_CONFIG = dict(
-    word_embedder=_WORD_EMEDDER['roberta'],
+DEFAULT_ARCHITECTURE_CONFIGURATION = dict(
+    word_embedder=_WORD_EMEDDER['roberta-base'],
     np_embedder=_NP_EMBEDDER['attention'],
     coref_predictor=_COREF_PREDICTOR['basic'],
     np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],

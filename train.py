@@ -2,36 +2,27 @@ import os
 
 import torch
 import wandb
-from pytorch_lightning import Callback, Trainer
+from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
+from callbacks.save_top_k_models_callback import SaveTopKModelsCallback
 from config import IGNORE_INDEX, CHECKPOINTS_ROOT_DIR
 from data_loading.tne_data_module import TNEDataModule
-from models.default_architecture_config import DEFAULT_ARCHITECTURE_CONFIG
+from models.architecture_configurations import DEFAULT_ARCHITECTURE_CONFIGURATION
 from models.tne_model import TNEModel
 from utils.initialization import initialize
 
 
-class SaveTopKModelsCallback(Callback):
-    def __init__(self, checkpoint_callback: ModelCheckpoint, checkpoints_directory: str):
-        self.checkpoint_callback = checkpoint_callback
-        self.checkpoints_directory = checkpoints_directory
-
-    def on_validation_epoch_end(self, trainer, pl_module):
-        if os.path.isdir(self.checkpoints_directory):
-            self.checkpoint_callback.to_yaml()
-
-
-def train():
+def train(architecture_configuration: dict):
     initialize(0)
 
     hyperparameter_defaults = dict(
         max_epochs=100,
         learning_rate=1e-4,  # 1e-5
         batch_size=32,
-        loss_weight_power=0,
-        model_architecture=DEFAULT_ARCHITECTURE_CONFIG
+        loss_weight_power=0.25,
+        model_architecture=architecture_configuration
     )
 
     wandb.init(project='TNE', config=hyperparameter_defaults)
@@ -49,7 +40,7 @@ def train():
     tne_data_module = TNEDataModule(model.tokenizer, batch_size=wandb.config.batch_size,
                                     ignore_index=IGNORE_INDEX, num_workers=0)
 
-    monitor_metric = "dev/links/f1"
+    monitor_metric = "dev/prepositions/custom_f1_epoch"
     checkpoint_callback = ModelCheckpoint(
         monitor=monitor_metric,
         dirpath=run_dir_path,
@@ -94,4 +85,4 @@ def train():
 
 
 if __name__ == '__main__':
-    train()
+    train(architecture_configuration=DEFAULT_ARCHITECTURE_CONFIGURATION)

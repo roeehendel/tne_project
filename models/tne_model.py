@@ -85,7 +85,9 @@ class TNEModel(BaseTNEModel):
         for module_name in self.forward_modules.keys():
             intermediate_outputs[module_name] = self.forward_modules[module_name](inputs, intermediate_outputs)
 
-        return dict(
-            tne_logits=intermediate_outputs['predictor']['logits'],
-            coref_logits=intermediate_outputs['coref_predictor']['scores'],
-        )
+        outputs = {'tne_logits': intermediate_outputs['predictor']['logits']}
+
+        if self._use_coref_loss:
+            outputs['coref_logits'] = intermediate_outputs['coref_predictor']['logits']
+
+        return outputs

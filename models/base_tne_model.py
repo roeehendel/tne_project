@@ -22,11 +22,12 @@ class MetricConfig:
 
 
 class BaseTNEModel(LightningModule):
-    def __init__(self, ignore_index: int, learning_rate: float, loss_weight_power,
+    def __init__(self, ignore_index: int, learning_rate: float, loss_weight_power: float, use_coref_loss: bool,
                  num_prepositions: int = NUM_PREPOSITIONS):
         super().__init__()
         # Hyper Parameters
-        self.ignore_index = ignore_index
+        self._ignore_index = ignore_index
+        self._use_coref_loss = use_coref_loss
         self.save_hyperparameters(
             "learning_rate",
             "loss_weight_power",
@@ -34,12 +35,12 @@ class BaseTNEModel(LightningModule):
         )
 
         # Loss
-        self.loss_weight = self._loss_weight()
+        self._loss_weight = self._loss_weight()
 
         # Metrics
-        self.data_splits = ['train', 'dev']
+        self._data_splits = ['train', 'dev']
 
-        self.metric_configs = {
+        self._metric_configs = {
             'links': MetricConfig(
                 metric_functions={'precision': torchmetrics.Precision, 'recall': torchmetrics.Recall,
                                   'f1': torchmetrics.F1Score},
@@ -56,21 +57,21 @@ class BaseTNEModel(LightningModule):
             ),
         }
 
-        self.metrics = {
+        self._metrics = {
             data_split: {
                 metric_name: {
                     metric_function_name: metric_function(**metric_config.metric_functions_kwargs)
                     for metric_function_name, metric_function in metric_config.metric_functions.items()
-                } for metric_name, metric_config in self.metric_configs.items()
+                } for metric_name, metric_config in self._metric_configs.items()
             }
-            for data_split in self.data_splits
+            for data_split in self._data_splits
         }
 
         # Register the metrics
-        for data_split in self.metrics:
-            for metric_name in self.metrics[data_split]:
-                for metric_function_name in self.metrics[data_split][metric_name]:
-                    metric = self.metrics[data_split][metric_name][metric_function_name]
+        for data_split in self._metrics:
+            for metric_name in self._metrics[data_split]:
+                for metric_function_name in self._metrics[data_split][metric_name]:
+                    metric = self._metrics[data_split][metric_name][metric_function_name]
                     self.__setattr__(self._metric_full_name(data_split, metric_name, metric_function_name), metric)
 
     @property
@@ -82,36 +83,32 @@ class BaseTNEModel(LightningModule):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.learning_rate)
         return optimizer
 
+    def _log_losses_and_metrics(self, losses: dict, tne_targets, tne_predictions, data_split: str):
+        self.log('train/loss', losses['loss'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('train/tne_loss', losses['tne_loss'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        if self._use_coref_loss:
+            self.log('train/coref_loss', losses['coref_loss'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self._calc_metrics(tne_targets, tne_predictions, 'train')
+
     def training_step(self, batch, batch_idx):
-        tne_loss, coref_loss, loss, tne_targets, predictions = self._train_val_step(batch)
-
-        self.log('train/loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('train/tne_loss', tne_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('train/coref_loss', coref_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self._calc_metrics(tne_targets, predictions, 'train')
-
+        loss = self._train_val_step(batch, 'train')
         return loss
 
     def validation_step(self, batch, batch_idx):
-        tne_loss, coref_loss, loss, tne_targets, tne_predictions = self._train_val_step(batch)
-
-        self.log('dev/loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('dev/tne_loss', tne_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('dev/coref_loss', coref_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self._calc_metrics(tne_targets, tne_predictions, 'dev')
-
+        loss = self._train_val_step(batch, 'dev')
         return loss
 
     def test_step(self, batch, batch_idx):
         num_nps = batch['num_nps']
-        tne_logits, coref_logits = self._predict_logits(batch)
-        predictions = tne_logits.argmax(dim=-1)
+        model_outputs = self._get_model_outputs(batch)
+        tne_predictions = model_outputs['tne_logits'].argmax(dim=-1)
 
-        batch_size, max_num_nps_squared = predictions.shape
+        batch_size, max_num_nps_squared = tne_predictions.shape
         max_num_nps = int(math.sqrt(max_num_nps_squared))
-        predictions = predictions.reshape(-1, max_num_nps, max_num_nps)
-        predictions[:, torch.arange(max_num_nps), torch.arange(max_num_nps)] = -1
-        predictions_per_step = [predictions[i][:num_nps[i], :num_nps[i]].flatten().tolist() for i in range(batch_size)]
+        tne_predictions = tne_predictions.reshape(-1, max_num_nps, max_num_nps)
+        tne_predictions[:, torch.arange(max_num_nps), torch.arange(max_num_nps)] = -1
+        predictions_per_step = [tne_predictions[i][:num_nps[i], :num_nps[i]].flatten().tolist() for i in
+                                range(batch_size)]
 
         return {
             'predictions': predictions_per_step
@@ -130,32 +127,35 @@ class BaseTNEModel(LightningModule):
         loss_weight = loss_weight / loss_weight.sum()
         return loss_weight
 
-    def _train_val_step(self, batch):
-        tne_logits, coref_logits = self._predict_logits(batch)
-        tne_targets, coref_targets = self._unpack_targets(batch)
+    def _train_val_step(self, batch: dict, data_split: str):
+        model_outputs = self._get_model_outputs(batch)
+        tne_logits, coref_logits = model_outputs['tne_logits'], model_outputs['coref_logits']
+        targets = self._unpack_targets(batch)
 
         logits_flat = self._flatten_logits(tne_logits)
         tne_predictions = logits_flat.argmax(dim=-1)
-        tne_targets = tne_targets.flatten()
+        tne_targets = targets['tne_targets'].flatten()
 
-        self.loss_weight = self.loss_weight.to(self.device)
-        tne_loss = F.cross_entropy(logits_flat, tne_targets, ignore_index=self.ignore_index, weight=self.loss_weight)
-
-        mask = coref_targets != self.ignore_index
-        coref_loss = F.binary_cross_entropy_with_logits(coref_logits[mask], coref_targets[mask].float())
-
-        use_coref_loss = True
-
+        self._loss_weight = self._loss_weight.to(self.device)
+        tne_loss = F.cross_entropy(logits_flat, tne_targets, ignore_index=self._ignore_index, weight=self._loss_weight)
         loss = tne_loss
-        if use_coref_loss:
+        losses = dict(loss=loss, tne_loss=tne_loss)
+
+        if self.use_coref_loss:
+            coref_targets = targets['coref_targets']
+            mask = coref_targets != self._ignore_index
+            coref_loss = F.binary_cross_entropy_with_logits(coref_logits[mask], coref_targets[mask].float())
             loss += coref_loss
+            losses['coref_loss'] = coref_loss
 
-        return tne_loss, coref_loss, loss, tne_targets, tne_predictions
+        self._log_losses_and_metrics(losses, tne_targets, tne_predictions, data_split)
 
-    def _predict_logits(self, batch):
+        return loss
+
+    def _get_model_outputs(self, batch):
         model_inputs = self._unpack_model_inputs(batch)
         model_outputs = self.forward(model_inputs)
-        return model_outputs['tne_logits'], model_outputs['coref_logits']
+        return model_outputs
 
     def _flatten_logits(self, logits):
         num_classes = logits.shape[-1]
@@ -176,16 +176,16 @@ class BaseTNEModel(LightningModule):
         device = self.device
         tne_targets = batch['targets'].to(device, dtype=torch.long)
         coref_targets = batch['coref_targets'].to(device, dtype=torch.long)
-        return tne_targets, coref_targets
+        return dict(tne_targets=tne_targets, coref_targets=coref_targets)
 
     def _calc_metrics(self, targets, predictions, data_split):
-        targets_masked = targets[targets != self.ignore_index]
-        predictions_masked = predictions[targets != self.ignore_index]
+        targets_masked = targets[targets != self._ignore_index]
+        predictions_masked = predictions[targets != self._ignore_index]
 
-        for metric_name, metric_config in self.metric_configs.items():
+        for metric_name, metric_config in self._metric_configs.items():
             metric_preprocessor = metric_config.preprocessor
             for metric_function_name in metric_config.metric_functions.keys():
-                metric = self.metrics[data_split][metric_name][metric_function_name]
+                metric = self._metrics[data_split][metric_name][metric_function_name]
                 targets_preprocessed, predictions_preprocessed = metric_preprocessor(predictions_masked, targets_masked)
                 if len(targets_preprocessed) != 0:
                     metric(targets_preprocessed.to(self.device), predictions_preprocessed.to(self.device))
@@ -194,4 +194,4 @@ class BaseTNEModel(LightningModule):
 
     @staticmethod
     def _metric_full_name(data_split, metric_name, metric_function_name):
-        return f'{data_split}/{metric_name}/{metric_function_name}'
+        return f'_{data_split}/{metric_name}/{metric_function_name}'
