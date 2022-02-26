@@ -102,3 +102,113 @@ DEFAULT_ARCHITECTURE_CONFIGURATION = dict(
     anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
     predictor=_PREDICTOR['basic']
 )
+
+CONFIGURATIONS = {}
+
+# the next 12 configs are adding to the base model each 'advanced' modal.
+for word_embedder_type in ['roberta-base', 'spanbert-base']:
+    CONFIGURATIONS.update({
+        f'basic-{word_embedder_type}': dict(
+            word_embedder=_WORD_EMBEDDER[f'{word_embedder_type}'],
+            np_embedder=_NP_EMBEDDER['concat'],
+            coref_predictor=_COREF_PREDICTOR['none'],
+            np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
+            anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['concat'],
+            predictor=_PREDICTOR['basic']
+        ),
+        f'np-embedder-attention-{word_embedder_type}': dict(
+            word_embedder=_WORD_EMBEDDER[f'{word_embedder_type}'],
+            np_embedder=_NP_EMBEDDER['attention'],
+            coref_predictor=_COREF_PREDICTOR['none'],
+            np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
+            anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['concat'],
+            predictor=_PREDICTOR['basic']
+        ),
+        f'coref-loss-{word_embedder_type}': dict(
+            word_embedder=_WORD_EMBEDDER[f'{word_embedder_type}'],
+            np_embedder=_NP_EMBEDDER['concat'],
+            coref_predictor=_COREF_PREDICTOR['basic'],
+            np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
+            anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['concat'],
+            predictor=_PREDICTOR['basic']
+        ),
+        f'np_contextual-{word_embedder_type}': dict(
+            word_embedder=_WORD_EMBEDDER[f'{word_embedder_type}'],
+            np_embedder=_NP_EMBEDDER['concat'],
+            coref_predictor=_COREF_PREDICTOR['basic'],
+            np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],
+            anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['concat'],
+            predictor=_PREDICTOR['basic']
+        ),
+        f'anchor_complement-multiplicative-spanbert': dict(
+            word_embedder=_WORD_EMBEDDER[f'{word_embedder_type}'],
+            np_embedder=_NP_EMBEDDER['concat'],
+            coref_predictor=_COREF_PREDICTOR['none'],
+            np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
+            anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
+            predictor=_PREDICTOR['basic']
+        ),
+        f'bias-predictor-{word_embedder_type}': dict(
+            word_embedder=_WORD_EMBEDDER[f'{word_embedder_type}'],
+            np_embedder=_NP_EMBEDDER['concat'],
+            coref_predictor=_COREF_PREDICTOR['none'],
+            np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
+            anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['concat'],
+            predictor=_PREDICTOR['basic-bias-init']
+        )
+    })
+
+# all next configs starts with all the advanced modals, at each
+CONFIGURATIONS.update({
+    'advanced-roberta-base': dict(
+        word_embedder=_WORD_EMBEDDER['roberta-base'],
+        np_embedder=_NP_EMBEDDER['attention'],
+        coref_predictor=_COREF_PREDICTOR['basic'],
+        np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],
+        anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
+        predictor=_PREDICTOR['basic-bias-init']
+    ),
+    'advanced-roberta-base-but-np_embedder': dict(
+        word_embedder=_WORD_EMBEDDER['roberta-base'],
+        np_embedder=_NP_EMBEDDER['concat'],
+        coref_predictor=_COREF_PREDICTOR['basic'],
+        np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],
+        anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
+        predictor=_PREDICTOR['basic-bias-init']
+    )
+    ,
+    'advanced-roberta-base-but-coref-predictor': dict(
+        word_embedder=_WORD_EMBEDDER['roberta-base'],
+        np_embedder=_NP_EMBEDDER['attention'],
+        coref_predictor=_COREF_PREDICTOR['none'],
+        np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
+        anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
+        predictor=_PREDICTOR['basic-bias-init']
+    )
+    ,
+    'advanced-roberta-base_but-np-contextual-embedder': dict(
+        word_embedder=_WORD_EMBEDDER['roberta-base'],
+        np_embedder=_NP_EMBEDDER['attention'],
+        coref_predictor=_COREF_PREDICTOR['basic'],
+        np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
+        anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
+        predictor=_PREDICTOR['basic-bias-init']
+    )
+    ,
+    'advanced-roberta-base-but-anchor-complement-embedder': dict(
+        word_embedder=_WORD_EMBEDDER['roberta-base'],
+        np_embedder=_NP_EMBEDDER['attention'],
+        coref_predictor=_COREF_PREDICTOR['basic'],
+        np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],
+        anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['concat'],
+        predictor=_PREDICTOR['basic-bias-init']
+    ),
+    'advanced-roberta-base-but-predictor': dict(
+        word_embedder=_WORD_EMBEDDER['roberta-base'],
+        np_embedder=_NP_EMBEDDER['attention'],
+        coref_predictor=_COREF_PREDICTOR['basic'],
+        np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],
+        anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
+        predictor=_PREDICTOR['basic']
+    ),
+})
