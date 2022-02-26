@@ -10,5 +10,5 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus=1
 
-source activate $1
+conda activate tne_project
 python train.py
