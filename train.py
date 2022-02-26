@@ -58,7 +58,7 @@ def train(hyperparameters: dict):
     trainer_kwargs = {
         'max_epochs': wandb.config.max_epochs,
         'gpus': [1, 2, 3],
-        'strategy': 'dp',
+        'strategy': 'ddp',
         # 'gpus': torch.cuda.device_count(),
         'logger': wandb_logger,
         'log_every_n_steps': 50,
