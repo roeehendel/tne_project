@@ -1,5 +1,6 @@
 import os
 
+import torch
 import wandb
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
@@ -57,20 +58,23 @@ def train(hyperparameters: dict):
 
     trainer_kwargs = {
         'max_epochs': wandb.config.max_epochs,
-        'gpus': [1, 2, 3],
-        'strategy': 'ddp',
-        # 'gpus': torch.cuda.device_count(),
         'logger': wandb_logger,
         'log_every_n_steps': 50,
         'callbacks': callbacks,
         # 'accumulate_grad_batches': 8
     }
 
-    # if torch.cuda.device_count() > 0:
-    #     trainer_kwargs.update({
-    #         'precision': 16,
-    #         'amp_backend': "native"
-    #     })
+    if torch.cuda.device_count() > 0:
+        trainer_kwargs['strategy'] = 'ddp'
+        if torch.cuda.device_count() == 4:
+            trainer_kwargs['gpus'] = [1, 2, 3]
+        else:
+            trainer_kwargs['gpus'] = torch.cuda.device_count()
+
+        trainer_kwargs.update({
+            'precision': 16,
+            'amp_backend': "native"
+        })
 
     trainer = Trainer(**trainer_kwargs)
     trainer.fit(lightning_module, tne_data_module)
