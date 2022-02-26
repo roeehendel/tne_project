@@ -168,7 +168,7 @@ CONFIGURATIONS.update({
         anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['multiplicative'],
         predictor=_PREDICTOR['basic-bias-init']
     ),
-    'advanced-roberta-base-but-np_embedder': dict(
+    'advanced-roberta-base-but-np-embedder': dict(
         word_embedder=_WORD_EMBEDDER['roberta-base'],
         np_embedder=_NP_EMBEDDER['concat'],
         coref_predictor=_COREF_PREDICTOR['basic'],
@@ -186,7 +186,7 @@ CONFIGURATIONS.update({
         predictor=_PREDICTOR['basic-bias-init']
     )
     ,
-    'advanced-roberta-base_but-np-contextual-embedder': dict(
+    'advanced-roberta-base-but-np-contextual-embedder': dict(
         word_embedder=_WORD_EMBEDDER['roberta-base'],
         np_embedder=_NP_EMBEDDER['attention'],
         coref_predictor=_COREF_PREDICTOR['basic'],

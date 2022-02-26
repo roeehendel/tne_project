@@ -32,7 +32,7 @@ class CorefPredictor(TNEBaseModule):
         coref_scores = self._predictor(concat_and_product_flat).squeeze()
         coref_scores = coref_scores + coref_scores.transpose(1, 2)
 
-        return dict(scores=coref_scores)
+        return dict(logits=coref_scores)
 
     @property
     def output_size(self):

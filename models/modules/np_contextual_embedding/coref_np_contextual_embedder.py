@@ -14,7 +14,7 @@ class CorefNPContextualEmbedder(BaseNPContextualEmbedder):
 
     def forward(self, inputs: dict, intermediate_outputs: dict) -> dict:
         np_embeddings = intermediate_outputs['np_embedder']['embeddings']
-        coref_scores = intermediate_outputs['coref_predictor']['scores']
+        coref_scores = intermediate_outputs['coref_predictor']['logits']
 
         coref_attention = torch.softmax(coref_scores.transpose(1, 2), dim=-1)
         coref_np_embeddings = torch.bmm(coref_attention, np_embeddings)

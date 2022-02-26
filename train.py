@@ -1,6 +1,5 @@
 import os
 
-import torch
 import wandb
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
@@ -31,7 +30,7 @@ def train(hyperparameters: dict):
     tne_data_module = TNEDataModule(lightning_module.tokenizer, batch_size=wandb.config.batch_size,
                                     ignore_index=IGNORE_INDEX, num_workers=0)
 
-    monitor_metric = "dev/prepositions/custom_f1_epoch"
+    monitor_metric = "_dev/prepositions/custom_f1_epoch"
     checkpoint_callback = ModelCheckpoint(
         monitor=monitor_metric,
         dirpath=run_dir_path,
@@ -58,18 +57,20 @@ def train(hyperparameters: dict):
 
     trainer_kwargs = {
         'max_epochs': wandb.config.max_epochs,
-        'gpus': torch.cuda.device_count(),
+        'gpus': [1, 2, 3],
+        'strategy': 'dp',
+        # 'gpus': torch.cuda.device_count(),
         'logger': wandb_logger,
         'log_every_n_steps': 50,
         'callbacks': callbacks,
         # 'accumulate_grad_batches': 8
     }
 
-    if torch.cuda.device_count() > 0:
-        trainer_kwargs.update({
-            'precision': 16,
-            'amp_backend': "native"
-        })
+    # if torch.cuda.device_count() > 0:
+    #     trainer_kwargs.update({
+    #         'precision': 16,
+    #         'amp_backend': "native"
+    #     })
 
     trainer = Trainer(**trainer_kwargs)
     trainer.fit(lightning_module, tne_data_module)
@@ -79,7 +80,7 @@ if __name__ == '__main__':
     hyperparameter_defaults = dict(
         max_epochs=100,
         learning_rate=1e-4,  # 1e-5
-        batch_size=8,
+        batch_size=16,
         loss_weight_power=0.25,
         use_coref_loss=True,
         model_architecture=DEFAULT_ARCHITECTURE_CONFIGURATION

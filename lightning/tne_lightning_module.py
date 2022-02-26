@@ -21,6 +21,14 @@ class MetricConfig:
     metric_functions_kwargs: Dict = dataclasses.field(default_factory=dict)
 
 
+def _links_preprocessor(predictions, targets):
+    return predictions != 0, targets.any(axis=-1) != 0
+
+
+def _prepositions_preprocessor(predictions, targets):
+    return predictions, targets
+
+
 class TNELightningModule(LightningModule):
     def __init__(self, architecture_config: dict,
                  ignore_index: int, learning_rate: float, loss_weight_power: float, use_coref_loss: bool,
@@ -28,7 +36,7 @@ class TNELightningModule(LightningModule):
         super().__init__()
         # Hyper Parameters
         self._ignore_index = ignore_index
-        self._use_coref_loss = use_coref_loss
+        self._use_coref_loss = architecture_config['coref_predictor']['type'] != 'none'
         self.save_hyperparameters(
             "learning_rate",
             "loss_weight_power",
@@ -49,7 +57,7 @@ class TNELightningModule(LightningModule):
             'links': MetricConfig(
                 metric_functions={'precision': torchmetrics.Precision, 'recall': torchmetrics.Recall,
                                   'f1': torchmetrics.F1Score},
-                preprocessor=lambda predictions, targets: (predictions != 0, targets.any(axis=-1) != 0),
+                preprocessor=_links_preprocessor,
                 metric_functions_kwargs={
                     'average': 'none',
                     'num_classes': 1,
@@ -58,7 +66,7 @@ class TNELightningModule(LightningModule):
             ),
             'prepositions': MetricConfig(
                 metric_functions={'custom_f1': CustomF1},
-                preprocessor=lambda predictions, targets: (predictions, targets),
+                preprocessor=_prepositions_preprocessor,
             ),
         }
 
@@ -188,8 +196,8 @@ class TNELightningModule(LightningModule):
         return targets
 
     def _calc_metrics(self, targets: dict, predictions: torch.Tensor, data_split: str):
-        tne_targets = targets['tne']
-        tne_multilabel_targets = targets['tne_multilabel']
+        tne_targets = targets['tne'].flatten()
+        tne_multilabel_targets = targets['tne_multilabel'].reshape(-1, NUM_PREPOSITIONS)
 
         tne_multilabel_targets_masked = tne_multilabel_targets[tne_targets != self._ignore_index]
         predictions_masked = predictions[tne_targets != self._ignore_index]

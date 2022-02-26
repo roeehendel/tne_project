@@ -7,6 +7,7 @@ from models.modules.anchor_complement_embedding.concat_anchor_complement_embedde
 from models.modules.anchor_complement_embedding.multiplicative_anchor_complement_embedder import \
     MultiplicativeAnchorComplementEmbedder
 from models.modules.coref_prediction.coref_predictor import CorefPredictor
+from models.modules.coref_prediction.none_coref_predictor import NoneCorefPredictor
 from models.modules.np_contextual_embedding.attention_np_contextual_embedder import TransformerNPContextualEmbedder
 from models.modules.np_contextual_embedding.coref_np_contextual_embedder import CorefNPContextualEmbedder
 from models.modules.np_contextual_embedding.passthrough_np_contextual_embedder import PassthroughNPContextualEmbedder
@@ -29,6 +30,7 @@ class TNEModel(nn.Module):
             "attention": AttentionNPEmbedder
         },
         coref_predictor={
+            'none': NoneCorefPredictor,
             "basic": CorefPredictor,
         },
         np_contextual_embedder={
@@ -82,7 +84,7 @@ class TNEModel(nn.Module):
 
         outputs = {'tne_logits': intermediate_outputs['predictor']['logits']}
 
-        if 'coref_predictor' is intermediate_outputs:
+        if 'coref_predictor' in intermediate_outputs:
             outputs['coref_logits'] = intermediate_outputs['coref_predictor']['logits']
 
         return outputs
