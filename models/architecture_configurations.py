@@ -1,6 +1,6 @@
 from data_loading.tne_dataset import NUM_PREPOSITIONS
 
-_WORD_EMEDDER = {
+_WORD_EMBEDDER = {
     'roberta-base': dict(
         type='roberta',
         params={
@@ -42,6 +42,11 @@ _NP_EMBEDDER = {
 }
 
 _COREF_PREDICTOR = {
+    # TODO: make this configuration work
+    'none': dict(
+        type='none',
+        params={}
+    ),
     'basic': dict(
         type='basic',
         params={}
@@ -56,14 +61,6 @@ _NP_CONTEXTUAL_EMBEDDER = {
     'coref': dict(
         type='coref',
         params={}
-    ),
-    'transformer': dict(
-        type='transformer',
-        params={
-            'cross_attention': True,
-            'nhead': 12,
-            'num_layers': 4,
-        }
     ),
 }
 
@@ -84,21 +81,21 @@ _PREDICTOR = {
         params={
             'hidden_size': 128,
             'num_prepositions': NUM_PREPOSITIONS,
+            'initialize_bias': False,
         }
     ),
-    'transformer': dict(
-        type='transformer',
+    'basic-bias-init': dict(
+        type='basic',
         params={
-            'hidden_size': 32,
+            'hidden_size': 128,
             'num_prepositions': NUM_PREPOSITIONS,
-            'nhead': 4,
-            'num_layers': 2
+            'initialize_bias': True,
         }
-    )
+    ),
 }
 
 DEFAULT_ARCHITECTURE_CONFIGURATION = dict(
-    word_embedder=_WORD_EMEDDER['roberta-base'],
+    word_embedder=_WORD_EMBEDDER['roberta-base'],
     np_embedder=_NP_EMBEDDER['attention'],
     coref_predictor=_COREF_PREDICTOR['basic'],
     np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['coref'],

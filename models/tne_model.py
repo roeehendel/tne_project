@@ -1,8 +1,8 @@
 from collections import OrderedDict
 
+from torch import nn
 from torch.nn import ModuleDict
 
-from models.base_tne_model import BaseTNEModel
 from models.modules.anchor_complement_embedding.concat_anchor_complement_embedder import ConcatAnchorComplementEmbedder
 from models.modules.anchor_complement_embedding.multiplicative_anchor_complement_embedder import \
     MultiplicativeAnchorComplementEmbedder
@@ -18,7 +18,7 @@ from models.modules.word_embedding.roberta_word_embedder import RobertaWordEmbed
 from models.modules.word_embedding.spanbert_word_embedder import SpanBertWordEmbedder
 
 
-class TNEModel(BaseTNEModel):
+class TNEModel(nn.Module):
     _MODULES = OrderedDict(
         word_embedder={
             "roberta": RobertaWordEmbedder,
@@ -55,10 +55,8 @@ class TNEModel(BaseTNEModel):
         predictor='anchor_complement_embedder'
     )
 
-    def __init__(self, ignore_index: int,
-                 learning_rate: float, loss_weight_power: float,
-                 architecture_config: dict):
-        super().__init__(ignore_index, learning_rate, loss_weight_power)
+    def __init__(self, architecture_config: dict):
+        super().__init__()
 
         # Architecture modules
         self.forward_modules = ModuleDict()
@@ -73,9 +71,6 @@ class TNEModel(BaseTNEModel):
             module = module_class(**module_config['params'], input_size=input_size)
             self.forward_modules[module_name] = module
 
-        # Hyper parameters
-        self.save_hyperparameters('architecture_config')
-
     @property
     def tokenizer(self):
         return self.forward_modules['word_embedder'].tokenizer
@@ -87,7 +82,7 @@ class TNEModel(BaseTNEModel):
 
         outputs = {'tne_logits': intermediate_outputs['predictor']['logits']}
 
-        if self._use_coref_loss:
+        if 'coref_predictor' is intermediate_outputs:
             outputs['coref_logits'] = intermediate_outputs['coref_predictor']['logits']
 
         return outputs

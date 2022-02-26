@@ -93,13 +93,14 @@ class TNEDataset(Dataset):
 
         self.has_targets = has_targets
         if self.has_targets:
-            self.targets = [create_target(item, self.max_nps, ignore_index) for item in self.data]
+            self.tne_targets = [create_target(item, self.max_nps, ignore_index) for item in self.data]
             self.coref_targets = [create_corefs_labels(item, self.max_nps, ignore_index) for item in self.data]
-            self.multi_label_targets = [create_multi_label_target(item, self.max_nps, ignore_index) for item in self.data]
+            self.tne_multilabel_targets = [create_multi_label_target(item, self.max_nps, ignore_index) for item in
+                                           self.data]
         else:
-            self.targets = None
+            self.tne_targets = None
             self.coref_targets = None
-            self.multi_label_targets = None
+            self.tne_multilabel_targets = None
 
     def __len__(self):
         return len(self.data)
@@ -114,18 +115,21 @@ class TNEDataset(Dataset):
         nps = create_nps(item, self.max_nps, encoding)
         num_nps = len(item['nps'])
 
-        item = {
+        item = {'inputs': {
             'ids': torch.tensor(ids, dtype=torch.long),
             'mask': torch.tensor(mask, dtype=torch.long),
             'nps': torch.tensor(nps, dtype=torch.long),
-            'num_nps': torch.tensor(num_nps, dtype=torch.long),
-        }
+            'num_nps': torch.tensor(num_nps, dtype=torch.long)
+        }}
 
         if self.has_targets:
-            targets = self.targets[idx]
-            item['targets'] = torch.tensor(targets, dtype=torch.long)
+            tne_targets = self.tne_targets[idx]
+            tne_multilabel_targets = self.tne_multilabel_targets[idx]
             coref_targets = self.coref_targets[idx]
-            item['coref_targets'] = torch.tensor(coref_targets, dtype=torch.long)
-            multi_label_targets = self.multi_label_targets[idx]
-            item['multi_label_targets'] = torch.tensor(multi_label_targets, dtype=torch.long)
+
+            item['targets'] = {
+                'tne': torch.tensor(tne_targets, dtype=torch.long),
+                'tne_multilabel': torch.tensor(tne_multilabel_targets, dtype=torch.long),
+                'coref': torch.tensor(coref_targets, dtype=torch.long),
+            }
         return item

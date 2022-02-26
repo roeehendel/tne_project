@@ -10,7 +10,7 @@ class BasicPredictor(BasePredictor):
     def output_size(self):
         return self._num_prepositions
 
-    def __init__(self, input_size: int, hidden_size: int, num_prepositions: int):
+    def __init__(self, input_size: int, hidden_size: int, num_prepositions: int, initialize_bias: bool):
         super().__init__(input_size)
         self._hidden_size = hidden_size
         self._num_prepositions = num_prepositions
@@ -18,7 +18,8 @@ class BasicPredictor(BasePredictor):
         self._linear1 = torch.nn.Linear(input_size, hidden_size)
         self._linear2 = torch.nn.Linear(hidden_size, num_prepositions)
 
-        self._linear2.bias.data.copy_(torch.log(torch.tensor(TNE_CLASS_WEIGHTS)))
+        if initialize_bias:
+            self._linear2.bias.data.copy_(torch.log(torch.tensor(TNE_CLASS_WEIGHTS)))
 
     def forward(self, inputs: dict, intermediate_outputs: dict) -> dict:
         anchor_complement_embeddings = intermediate_outputs["anchor_complement_embedder"]["embeddings"]

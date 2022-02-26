@@ -9,35 +9,26 @@ from pytorch_lightning.loggers import WandbLogger
 from callbacks.save_top_k_models_callback import SaveTopKModelsCallback
 from config import IGNORE_INDEX, CHECKPOINTS_ROOT_DIR
 from data_loading.tne_data_module import TNEDataModule
+from lightning.tne_lightning_module import TNELightningModule
 from models.architecture_configurations import DEFAULT_ARCHITECTURE_CONFIGURATION
-from models.tne_model import TNEModel
 from utils.initialization import initialize
 
 
-def train(architecture_configuration: dict):
+def train(hyperparameters: dict):
     initialize(0)
-
-    hyperparameter_defaults = dict(
-        max_epochs=100,
-        learning_rate=1e-4,  # 1e-5
-        batch_size=32,
-        loss_weight_power=0.25,
-        model_architecture=architecture_configuration
-    )
-
-    wandb.init(project='TNE', config=hyperparameter_defaults)
+    wandb.init(project='TNE', config=hyperparameters)
 
     run_dir_path = os.path.join(CHECKPOINTS_ROOT_DIR, wandb.run.name)
 
     wandb_logger = WandbLogger()
-
-    model = TNEModel(
+    lightning_module = TNELightningModule(
+        architecture_config=wandb.config.model_architecture,
         ignore_index=IGNORE_INDEX,
         learning_rate=wandb.config.learning_rate,
         loss_weight_power=wandb.config.loss_weight_power,
-        architecture_config=wandb.config.model_architecture
+        use_coref_loss=wandb.config.use_coref_loss
     )
-    tne_data_module = TNEDataModule(model.tokenizer, batch_size=wandb.config.batch_size,
+    tne_data_module = TNEDataModule(lightning_module.tokenizer, batch_size=wandb.config.batch_size,
                                     ignore_index=IGNORE_INDEX, num_workers=0)
 
     monitor_metric = "dev/prepositions/custom_f1_epoch"
@@ -81,8 +72,17 @@ def train(architecture_configuration: dict):
         })
 
     trainer = Trainer(**trainer_kwargs)
-    trainer.fit(model, tne_data_module)
+    trainer.fit(lightning_module, tne_data_module)
 
 
 if __name__ == '__main__':
-    train(architecture_configuration=DEFAULT_ARCHITECTURE_CONFIGURATION)
+    hyperparameter_defaults = dict(
+        max_epochs=100,
+        learning_rate=1e-4,  # 1e-5
+        batch_size=8,
+        loss_weight_power=0.25,
+        use_coref_loss=True,
+        model_architecture=DEFAULT_ARCHITECTURE_CONFIGURATION
+    )
+
+    train(hyperparameter_defaults)

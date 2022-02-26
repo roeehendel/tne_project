@@ -31,11 +31,17 @@ class MultiplicativeAnchorComplementEmbedder(BaseAnchorComplementEmbedder):
             dim=-1
         ).view(batch_size, max_nps ** 2, self._hidden_size, 2)
 
+        anchor_complement_distances = torch.norm(anchor_complement_embeddings_concat[:, :, :, 0] -
+                                                 anchor_complement_embeddings_concat[:, :, :, 1], dim=-1)
         elementwise_product = anchor_complement_embeddings_concat.prod(axis=-1)
         concat_and_product = torch.cat([anchor_complement_embeddings_concat, elementwise_product.unsqueeze(-1)],
                                        dim=-1)
 
         concat_and_product_flat = concat_and_product.view(batch_size, max_nps ** 2, -1)
+
+        # all_features = torch.cat([concat_and_product_flat, anchor_complement_distances.unsqueeze(-1)], dim=-1)
+        # anchor_complement_embeddings = self._projection(all_features)
+
         anchor_complement_embeddings = self._projection(concat_and_product_flat)
 
         return dict(embeddings=anchor_complement_embeddings)
