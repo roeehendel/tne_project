@@ -97,8 +97,11 @@ class TNELightningModule(LightningModule):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.learning_rate)
         dataset_size = 4000
         epoch_steps = int(dataset_size / self._batch_size)
-        scheduler = transformers.get_linear_schedule_with_warmup(optimizer, num_warmup_steps=epoch_steps,
-                                                                 num_training_steps=epoch_steps * self._max_epochs)
+        scheduler = transformers.get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=epoch_steps,
+            num_training_steps=int(epoch_steps * self._max_epochs * 1.5)
+        )
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
