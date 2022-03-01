@@ -8,8 +8,8 @@ from train import train
 def run_experiment(group_name, experiment_name):
     hyperparameters = dict(
         max_epochs=25,
-        learning_rate=1e-4,  # 1e-5
-        batch_size=16,
+        learning_rate=5e-5,  # 1e-5
+        batch_size=8,
         loss_weight_power=0.25,
         architecture_configuration=asdict(ARCHITECTURE_CONFIGURATIONS[experiment_name])
     )

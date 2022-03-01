@@ -11,3 +11,4 @@ dependencies:
   - transformers
   - torchmetrics
   - wandb
+  - matplotlib

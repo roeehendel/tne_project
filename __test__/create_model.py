@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 from torch._C._autograd import ProfilerActivity
 from torch.autograd.profiler import record_function
 from torch.profiler import profile
@@ -11,12 +13,15 @@ from models.tne_model import TNEModel
 
 
 def create_model():
-    architecture_configuration = list(ARCHITECTURE_CONFIGURATIONS.values())[10]
+    architecture_configuration = asdict(list(ARCHITECTURE_CONFIGURATIONS.values())[10])
 
     model = TNEModel(architecture_configuration)
-    dataset = TNEDataset(TRAIN_DATASET, model.tokenizer, max_length=512, max_nps=60, ignore_index=IGNORE_INDEX)
+    dataset = TNEDataset(TRAIN_DATASET, model.tokenizer, max_nps=60, ignore_index=IGNORE_INDEX)
     dataloader = DataLoader(dataset, batch_size=2)
 
+    print(dataset[0])
+
+    lengths = [(dataset[i]['inputs']['ids'] != 0).sum() for i in range(len(dataset))]
     batch = next(iter(dataloader))
 
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],

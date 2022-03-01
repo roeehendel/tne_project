@@ -10,7 +10,7 @@ from data_loading.tne_dataset import TNEDataset
 
 class TNEDataModule(LightningDataModule):
     def __init__(self, tokenizer: PreTrainedTokenizerFast, batch_size: int,
-                 num_workers: int = 0, max_len: int = 512, max_nps: int = 60, ignore_index: int = -100):
+                 num_workers: int = 0, max_len: int = (128 * 3), max_nps: int = 60, ignore_index: int = -100):
         super().__init__()
         self.tokenizer = tokenizer
         self.batch_size = batch_size
