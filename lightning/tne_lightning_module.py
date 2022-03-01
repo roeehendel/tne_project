@@ -5,6 +5,7 @@ from typing import Callable, Dict
 import torch
 import torch.nn.functional as F
 import torchmetrics
+import transformers
 from pytorch_lightning import LightningModule
 from torchmetrics import Metric
 
@@ -31,12 +32,13 @@ def _prepositions_preprocessor(predictions, targets):
 
 class TNELightningModule(LightningModule):
     def __init__(self, architecture_config: dict,
-                 ignore_index: int, learning_rate: float, loss_weight_power: float, use_coref_loss: bool,
+                 ignore_index: int, learning_rate: float, loss_weight_power: float, batch_size: int, max_epochs: int,
                  num_prepositions: int = NUM_PREPOSITIONS):
         super().__init__()
         # Hyper Parameters
         self._ignore_index = ignore_index
-        self._use_coref_loss = architecture_config['coref_predictor']['type'] != 'none'
+        self._batch_size = batch_size
+        self._max_epochs = max_epochs
         self.save_hyperparameters(
             "learning_rate",
             "loss_weight_power",
@@ -85,7 +87,7 @@ class TNELightningModule(LightningModule):
             for metric_name in self._metrics[data_split]:
                 for metric_function_name in self._metrics[data_split][metric_name]:
                     metric = self._metrics[data_split][metric_name][metric_function_name]
-                    self.__setattr__(self._metric_full_name(data_split, metric_name, metric_function_name), metric)
+                    self.__setattr__(self.metric_full_name(data_split, metric_name, metric_function_name), metric)
 
     @property
     def tokenizer(self):
@@ -93,12 +95,25 @@ class TNELightningModule(LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.learning_rate)
-        return optimizer
+        dataset_size = 4000
+        epoch_steps = int(dataset_size / self._batch_size)
+        scheduler = transformers.get_linear_schedule_with_warmup(optimizer, num_warmup_steps=epoch_steps,
+                                                                 num_training_steps=epoch_steps * self._max_epochs)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "step"
+            },
+        }
 
     def _log_losses_and_metrics(self, losses: dict, targets: dict, tne_predictions: torch.Tensor, data_split: str):
+        for loss_name, loss_value in losses.items():
+            self.log(f'{data_split}/{loss_name}', loss_value, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
         self.log(f'{data_split}/loss', losses['loss'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log(f'{data_split}/tne_loss', losses['tne_loss'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        if self._use_coref_loss:
+        if 'coref_loss' in losses:
             self.log(f'{data_split}/coref_loss', losses['coref_loss'], on_step=True, on_epoch=True, prog_bar=True,
                      logger=True)
         self._calc_metrics(targets, tne_predictions, data_split)
@@ -154,7 +169,7 @@ class TNELightningModule(LightningModule):
         loss = tne_loss
         losses = dict(loss=loss, tne_loss=tne_loss)
 
-        if self._use_coref_loss:
+        if 'coref_logits' in model_outputs:
             coref_logits = model_outputs['coref_logits']
             coref_targets = targets['coref']
             mask = coref_targets != self._ignore_index
@@ -212,9 +227,9 @@ class TNELightningModule(LightningModule):
                 )
                 if len(targets_preprocessed) != 0:
                     metric(targets_preprocessed.to(self.device), predictions_preprocessed.to(self.device))
-                    self.log(self._metric_full_name(data_split, metric_name, metric_function_name),
+                    self.log(self.metric_full_name(data_split, metric_name, metric_function_name),
                              metric, on_step=True, on_epoch=True)
 
     @staticmethod
-    def _metric_full_name(data_split, metric_name, metric_function_name):
-        return f'_{data_split}/{metric_name}/{metric_function_name}'
+    def metric_full_name(data_split, metric_name, metric_function_name):
+        return f'{data_split}/{metric_name}/{metric_function_name}'

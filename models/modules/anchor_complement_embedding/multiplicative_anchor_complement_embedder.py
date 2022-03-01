@@ -18,26 +18,16 @@ class MultiplicativeAnchorComplementEmbedder(BaseAnchorComplementEmbedder):
         return self._hidden_size
 
     def forward(self, inputs: dict, intermediate_outputs: dict) -> dict:
-        np_contextual_embeddings = intermediate_outputs['np_contextual_embedder']['embeddings']
+        anchor_complement_embeddings_pairs = self._get_anchor_complement_embeddings_pairs(intermediate_outputs)
+        batch_size, num_anchor_complement_pairs, _, _ = anchor_complement_embeddings_pairs.shape
 
-        batch_size, max_nps, _ = np_contextual_embeddings.shape
-
-        anchor_embeddings = self._anchor_encoder(np_contextual_embeddings)
-        complement_embeddings = self._complement_encoder(np_contextual_embeddings)
-
-        anchor_complement_embeddings_concat = torch.cat(
-            [anchor_embeddings[:, None, :, :, None].repeat(1, max_nps, 1, 1, 1),
-             complement_embeddings[:, :, None, :, None].repeat(1, 1, max_nps, 1, 1)],
-            dim=-1
-        ).view(batch_size, max_nps ** 2, self._hidden_size, 2)
-
-        anchor_complement_distances = torch.norm(anchor_complement_embeddings_concat[:, :, :, 0] -
-                                                 anchor_complement_embeddings_concat[:, :, :, 1], dim=-1)
-        elementwise_product = anchor_complement_embeddings_concat.prod(axis=-1)
-        concat_and_product = torch.cat([anchor_complement_embeddings_concat, elementwise_product.unsqueeze(-1)],
+        # anchor_complement_distances = torch.norm(anchor_complement_embeddings_concat[:, :, :, 0] -
+        #                                          anchor_complement_embeddings_concat[:, :, :, 1], dim=-1)
+        elementwise_product = anchor_complement_embeddings_pairs.prod(axis=-1)
+        concat_and_product = torch.cat([anchor_complement_embeddings_pairs, elementwise_product.unsqueeze(-1)],
                                        dim=-1)
 
-        concat_and_product_flat = concat_and_product.view(batch_size, max_nps ** 2, -1)
+        concat_and_product_flat = concat_and_product.view(batch_size, num_anchor_complement_pairs, -1)
 
         # all_features = torch.cat([concat_and_product_flat, anchor_complement_distances.unsqueeze(-1)], dim=-1)
         # anchor_complement_embeddings = self._projection(all_features)

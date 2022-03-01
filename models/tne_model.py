@@ -1,53 +1,23 @@
 from collections import OrderedDict
+from dataclasses import dataclass
 
 from torch import nn
 from torch.nn import ModuleDict
 
-from models.modules.anchor_complement_embedding.concat_anchor_complement_embedder import ConcatAnchorComplementEmbedder
-from models.modules.anchor_complement_embedding.multiplicative_anchor_complement_embedder import \
-    MultiplicativeAnchorComplementEmbedder
-from models.modules.coref_prediction.coref_predictor import CorefPredictor
-from models.modules.coref_prediction.none_coref_predictor import NoneCorefPredictor
-from models.modules.np_contextual_embedding.attention_np_contextual_embedder import TransformerNPContextualEmbedder
-from models.modules.np_contextual_embedding.coref_np_contextual_embedder import CorefNPContextualEmbedder
-from models.modules.np_contextual_embedding.passthrough_np_contextual_embedder import PassthroughNPContextualEmbedder
-from models.modules.np_embedding.attention_np_embedder import AttentionNPEmbedder
-from models.modules.np_embedding.concat_np_embedder import ConcatNPEmbedder
-from models.modules.prediction.attention_predictor import TransformerPredictor
-from models.modules.prediction.basic_predictor import BasicPredictor
-from models.modules.word_embedding.roberta_word_embedder import RobertaWordEmbedder
-from models.modules.word_embedding.spanbert_word_embedder import SpanBertWordEmbedder
+from models.modules.get_modules_classes import get_tne_modules_classes
+
+
+@dataclass
+class TNEArchitectureConfiguration:
+    word_embedder: dict
+    np_embedder: dict
+    coref_predictor: dict
+    np_contextual_embedder: dict
+    anchor_complement_embedder: dict
+    predictor: dict
 
 
 class TNEModel(nn.Module):
-    _MODULES = OrderedDict(
-        word_embedder={
-            "roberta": RobertaWordEmbedder,
-            "spanbert": SpanBertWordEmbedder,
-        },
-        np_embedder={
-            "concat": ConcatNPEmbedder,
-            "attention": AttentionNPEmbedder
-        },
-        coref_predictor={
-            'none': NoneCorefPredictor,
-            "basic": CorefPredictor,
-        },
-        np_contextual_embedder={
-            "passthrough": PassthroughNPContextualEmbedder,
-            "transformer": TransformerNPContextualEmbedder,
-            "coref": CorefNPContextualEmbedder,
-        },
-        anchor_complement_embedder={
-            "concat": ConcatAnchorComplementEmbedder,
-            "multiplicative": MultiplicativeAnchorComplementEmbedder,
-        },
-        predictor={
-            "basic": BasicPredictor,
-            "transformer": TransformerPredictor,
-        },
-    )
-
     _MODULE_INPUTS = OrderedDict(
         word_embedder=None,
         np_embedder='word_embedder',
@@ -57,34 +27,35 @@ class TNEModel(nn.Module):
         predictor='anchor_complement_embedder'
     )
 
-    def __init__(self, architecture_config: dict):
+    def __init__(self, architecture_configuration: dict):
         super().__init__()
 
         # Architecture modules
-        self.forward_modules = ModuleDict()
-        for module_name, module_classes in TNEModel._MODULES.items():
-            module_config = architecture_config[module_name]
-            module_class = module_classes[module_config['type']]
+        self._architecture_configuration = architecture_configuration
+        self._forward_modules = ModuleDict()
+        modules_classes = get_tne_modules_classes()
+        for module_name, module_config in self._architecture_configuration.items():
+            module_class = modules_classes[module_config['type']]
 
             input_module_name = TNEModel._MODULE_INPUTS[module_name]
-            input_module = self.forward_modules[input_module_name] if input_module_name else None
+            input_module = self._forward_modules[input_module_name] if input_module_name else None
             input_size = input_module.output_size if input_module is not None else -1
 
             module = module_class(**module_config['params'], input_size=input_size)
-            self.forward_modules[module_name] = module
+            self._forward_modules[module_name] = module
 
     @property
     def tokenizer(self):
-        return self.forward_modules['word_embedder'].tokenizer
+        return self._forward_modules['word_embedder'].tokenizer
 
     def forward(self, inputs):
         intermediate_outputs = dict()
-        for module_name in self.forward_modules.keys():
-            intermediate_outputs[module_name] = self.forward_modules[module_name](inputs, intermediate_outputs)
+        for module_name in self._forward_modules.keys():
+            intermediate_outputs[module_name] = self._forward_modules[module_name](inputs, intermediate_outputs)
 
         outputs = {'tne_logits': intermediate_outputs['predictor']['logits']}
 
-        if 'coref_predictor' in intermediate_outputs:
+        if intermediate_outputs['coref_predictor'] is not None:
             outputs['coref_logits'] = intermediate_outputs['coref_predictor']['logits']
 
         return outputs
