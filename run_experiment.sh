@@ -1,1 +1,1 @@
-sbatch --output=outputs/$1.out --error=outputs_3/$1.err run_experiment.slurm $1
+sbatch --output=outputs/$1.out --error=outputs/$1.err run_experiment.slurm $1
