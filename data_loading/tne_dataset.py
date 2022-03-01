@@ -116,8 +116,8 @@ class TNEDataset(Dataset):
         num_nps = len(item['nps'])
 
         item = {'inputs': {
-            'ids': torch.tensor(ids, dtype=torch.long),
-            'mask': torch.tensor(mask, dtype=torch.long),
+            'ids': torch.tensor(ids, dtype=torch.long)[:self.max_length],
+            'mask': torch.tensor(mask, dtype=torch.long)[:self.max_length],
             'nps': torch.tensor(nps, dtype=torch.long),
             'num_nps': torch.tensor(num_nps, dtype=torch.long)
         }}
