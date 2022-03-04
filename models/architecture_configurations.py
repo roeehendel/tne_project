@@ -200,14 +200,6 @@ ARCHITECTURE_CONFIGURATIONS.update({
 })
 
 ARCHITECTURE_CONFIGURATIONS.update({
-    'basic-roberta-large': TNEArchitectureConfiguration(
-        word_embedder=_WORD_EMBEDDER['roberta-large'],
-        np_embedder=_NP_EMBEDDER['concat'],
-        coref_predictor=_COREF_PREDICTOR['none'],
-        np_contextual_embedder=_NP_CONTEXTUAL_EMBEDDER['passthrough'],
-        anchor_complement_embedder=_ANCHOR_COMPLEMENT_EMBEDDER['concat'],
-        predictor=_PREDICTOR['basic']
-    ),
     'advanced-roberta-large': TNEArchitectureConfiguration(
         word_embedder=_WORD_EMBEDDER['roberta-large'],
         np_embedder=_NP_EMBEDDER['attention'],
