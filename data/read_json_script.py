@@ -2,6 +2,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 preposition_list = ['no-relation', 'of', 'against', 'in', 'by', 'on', 'about', 'with', 'after', 'member(s) of',
                     'to', 'from', 'for', 'among', 'under', 'at', 'between', 'during', 'near', 'over', 'before',
                     'inside', 'outside', 'into', 'around']
@@ -128,6 +129,31 @@ def create_corefs_labels(json_path : str, max_nps: int, ignore_index: int):
 
         return corefs_target
 
+"""
+SCRIPT FOR MULTI LABEL TARGETS
+"""
+def create_multi_label_target(json_path : str, max_nps: int, ignore_index: int):
+    lines = open_file_json(json_path)
+    for i in range(len(lines)):
+        item = json.loads(lines[i])
+
+        len_nps = len(item['nps'])
+        np_relations = item['np_relations']
+        num_prep = len(preposition_list)
+        multi_label_target = np.ones((max_nps, max_nps, num_prep)) * ignore_index
+        multi_label_target[:len_nps, :len_nps, :] = 0
+
+        # go over all the np relations and update multi_label_target
+        for np_relation in np_relations:
+            preposition_index = preposition_list.index(np_relation['preposition'])
+            anchor_index = int(np_relation['anchor'][2:])
+            complement_index = int(np_relation['complement'][2:])
+            multi_label_target[anchor_index, complement_index, preposition_index] = 1
+        # update target where anchor and complement are same to -100 to ignore them
+        multi_label_target[np.arange(len_nps), np.arange(len_nps), :] = ignore_index
+        return multi_label_target
+
+
 # create_corefs_labels('dev.jsonl', 50, -100)
 # get_numer_of_tuples_with_more_than_one_relation('train.jsonl')
-
+# create_multi_label_target('train.jsonl', 60, -100)
